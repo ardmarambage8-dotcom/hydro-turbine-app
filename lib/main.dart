@@ -477,9 +477,12 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                '• Turbine Model: ZZ1540 - LJI - 190\n'
-                '• Net Head (H): Water Level - 78.64 m\n'
-                '• Output Power: H × Cum × EF × 9.81 kW\n'
+                '• Turbine Model: ZZ1540 - LJI - 190
+'
+                '• Net Head (H): Water Level - 78.64 m
+'
+                '• Output Power: H × Cum × EF × 9.81 kW
+'
                 '• Includes CEB Load Reduction Calculator',
                 style: TextStyle(
                   fontSize: 12,
@@ -1127,67 +1130,79 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF78350F), Color(0xFF0F172A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B),
+                        width: 1.5,
+                      ),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        Text(
+                          'REDUCTION AMOUNT (${reductionPct.toStringAsFixed(0)}% TO REDUCE)',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Color(0xFFFBBF24),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const Text(
-                              'Reduction Amount:',
-                              style: TextStyle(
-                                  fontSize: 13, color: Color(0xFF94A3B8)),
-                            ),
                             Text(
-                              '- ${reducedAmountKw.toStringAsFixed(1)} kW',
+                              reducedAmountKw.toStringAsFixed(1),
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 42,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFFF87171),
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'kW',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF59E0B),
                               ),
                             ),
                           ],
                         ),
-                        const Divider(color: Color(0xFF1E293B), height: 18),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'TARGET POWER TO RUN:',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF6EE7B7),
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${targetGenKw.toStringAsFixed(1)} kW',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF10B981),
-                                  ),
-                                ),
-                                Text(
-                                  '${(targetGenKw / 1000.0).toStringAsFixed(3)} MW',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        const SizedBox(height: 2),
+                        Text(
+                          '${(reducedAmountKw / 1000.0).toStringAsFixed(3)} MW',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFDE68A),
+                          ),
+                        ),
+                        const Divider(color: Color(0xFF92400E), height: 20),
+                        Text(
+                          'Remaining Target Power: ${targetGenKw.toStringAsFixed(1)} kW (${(targetGenKw / 1000.0).toStringAsFixed(3)} MW)',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
