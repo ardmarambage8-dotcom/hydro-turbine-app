@@ -276,6 +276,38 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
     super.dispose();
   }
 
+  double _calculateInterpolatedEf(double h, double q) {
+    final double clampedH = h.clamp(6.0, 20.0);
+    final double clampedQ = q.clamp(6.0, 21.0);
+
+    final int hLowIdx = (clampedH.floor() - 6).clamp(0, 14);
+    final int hHighIdx = (clampedH.ceil() - 6).clamp(0, 14);
+    final int qLow = clampedQ.floor().clamp(6, 21);
+    final int qHigh = clampedQ.ceil().clamp(6, 21);
+
+    final ChartPoint? p11 = TurbineChartData.grid[qLow]?[hLowIdx];
+    final ChartPoint? p12 = TurbineChartData.grid[qLow]?[hHighIdx];
+    final ChartPoint? p21 = TurbineChartData.grid[qHigh]?[hLowIdx];
+    final ChartPoint? p22 = TurbineChartData.grid[qHigh]?[hHighIdx];
+
+    final int nearHIdx = TurbineChartData.nearestHeadIndex(clampedH);
+    final int nearQ = TurbineChartData.nearestFlow(clampedQ);
+    final ChartPoint? fallback = TurbineChartData.grid[nearQ]?[nearHIdx];
+    final double baseEf = fallback?.ef ?? 85.0;
+
+    if (p11 == null || p12 == null || p21 == null || p22 == null) {
+      return baseEf;
+    }
+
+    final double hFrac =
+        (hHighIdx == hLowIdx) ? 0.0 : (clampedH - (hLowIdx + 6));
+    final double qFrac = (qHigh == qLow) ? 0.0 : (clampedQ - qLow);
+
+    final double efQ1 = p11.ef + (p12.ef - p11.ef) * hFrac;
+    final double efQ2 = p21.ef + (p22.ef - p21.ef) * hFrac;
+    return efQ1 + (efQ2 - efQ1) * qFrac;
+  }
+
   void _showChangePinDialog() {
     final newPinCtrl = TextEditingController();
     final confirmPinCtrl = TextEditingController();
@@ -541,12 +573,11 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
         totalOutflow != null ? (totalOutflow / _runningUnits) : null;
 
     ChartPoint? nearestPoint;
-    double? interpolatedEf;
     double? finalEf;
     double? powerPerTurbineKw;
     double? totalPlantPowerKw;
     String? statusWarning;
-    int chartH = 0;
+    double chartH = 0.0;
     int chartQ = 0;
 
     if (netHead == null || flowPerTurbine == null) {
@@ -557,18 +588,18 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
     } else if (flowPerTurbine <= 0) {
       statusWarning = 'Total Outflow must be greater than 0 Cum/s.';
     } else {
-      nearestPoint = TurbineChartData.getNearestPoint(netHead, flowPerTurbine);
-      interpolatedEf =
-          TurbineChartData.getInterpolatedEf(netHead, flowPerTurbine);
+      final int headIdx = TurbineChartData.nearestHeadIndex(netHead);
+      final int nearFlow = TurbineChartData.nearestFlow(flowPerTurbine);
+      nearestPoint = TurbineChartData.grid[nearFlow]?[headIdx];
 
       if (nearestPoint == null) {
         statusWarning =
             'Operating point (H=${netHead.toStringAsFixed(2)}m, Q=${flowPerTurbine.toStringAsFixed(2)} Cum/s) is outside the valid chart region.';
       } else {
-        chartH = netHead.round().clamp(6, 20);
-        chartQ = flowPerTurbine.round().clamp(6, 21);
+        chartH = TurbineChartData.heads[headIdx];
+        chartQ = nearFlow;
         finalEf = _useInterpolated
-            ? (interpolatedEf ?? nearestPoint.ef)
+            ? _calculateInterpolatedEf(netHead, flowPerTurbine)
             : nearestPoint.ef;
         powerPerTurbineKw =
             netHead * flowPerTurbine * (finalEf / 100.0) * 9.81;
@@ -586,7 +617,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
 
     final double currentGenKw =
         double.tryParse(_currentGenController.text.trim()) ?? 0.0;
-        final double reductionPct =
+    final double reductionPct =
         double.tryParse(_reductionPctController.text.trim()) ?? 0.0;
     final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
     final double targetGenKw =
@@ -848,7 +879,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'H=${chartH.toDouble().toStringAsFixed(1)}m, Q=$chartQ',
+                            'H=${chartH.toStringAsFixed(1)}m, Q=$chartQ',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1057,4 +1088,117 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                               style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.bold),
                               decoration: const InputDecoration(
-                    
+                                hintText: 'e.g. 2300',
+                                suffixText: 'kW',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Reduce (%)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _reductionPctController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF59E0B),
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '20',
+                                suffixText: '%',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF334155)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Reduction Amount:',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFF94A3B8)),
+                            ),
+                            Text(
+                              '- ${reducedAmountKw.toStringAsFixed(1)} kW',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF87171),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(color: Color(0xFF1E293B), height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'TARGET POWER TO RUN:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6EE7B7),
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${targetGenKw.toStringAsFixed(1)} kW',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF10B981),
+                                  ),
+                                ),
+                                Text(
+                                  '${(targetGenKw / 1000.0).toStringAsFixed(3)} MW',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
