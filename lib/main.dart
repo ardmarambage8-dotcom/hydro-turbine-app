@@ -429,7 +429,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 1.2.0',
+                'Version 1.3.0',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1280,17 +1280,17 @@ class DailyGenerationTab extends StatefulWidget {
 }
 
 class _DailyGenerationTabState extends State<DailyGenerationTab> {
-  // Stored baseline / yesterday values
+  // KOTUWA 1: Panel Meter Readings (Yesterday 9 AM vs Today 9 AM)
   final TextEditingController _prevPanelG1Ctrl = TextEditingController();
   final TextEditingController _prevPanelG2Ctrl = TextEditingController();
-  final TextEditingController _prevCumG1Ctrl =
-      TextEditingController(text: '122292.19');
-  final TextEditingController _prevCumG2Ctrl =
-      TextEditingController(text: '107490.64');
-
-  // Today 9:00 AM Panel Readings
   final TextEditingController _todayPanelG1Ctrl = TextEditingController();
   final TextEditingController _todayPanelG2Ctrl = TextEditingController();
+
+  // KOTUWA 2: Mechchara Dawasak Duwapu Samastha Agaya (Previous Cumulative G1 & G2)
+  final TextEditingController _prevCumG1Ctrl =
+      TextEditingController(text: '122262.42');
+  final TextEditingController _prevCumG2Ctrl =
+      TextEditingController(text: '107462.73');
 
   // Plant Details for WhatsApp Report
   final TextEditingController _dateCtrl = TextEditingController();
@@ -1307,7 +1307,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _genF1Ctrl = TextEditingController(text: '00');
   final TextEditingController _genF2Ctrl = TextEditingController(text: '00');
 
-  bool _editBaseValues = false;
   bool _isLoaded = false;
 
   @override
@@ -1322,10 +1321,10 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     for (final c in [
       _prevPanelG1Ctrl,
       _prevPanelG2Ctrl,
-      _prevCumG1Ctrl,
-      _prevCumG2Ctrl,
       _todayPanelG1Ctrl,
       _todayPanelG2Ctrl,
+      _prevCumG1Ctrl,
+      _prevCumG2Ctrl,
       _dateCtrl,
       _resLevelCtrl,
       _waterDisCtrl,
@@ -1348,8 +1347,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     setState(() {
       _prevPanelG1Ctrl.text = prefs.getString('dg_prev_panel_g1') ?? '';
       _prevPanelG2Ctrl.text = prefs.getString('dg_prev_panel_g2') ?? '';
-      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122292.19';
-      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107490.64';
+      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122262.42';
+      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107462.73';
 
       _resLevelCtrl.text = prefs.getString('dg_res_level') ?? '89.25';
       _waterDisCtrl.text = prefs.getString('dg_water_dis') ?? '29';
@@ -1359,10 +1358,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _genF1Ctrl.text = prefs.getString('dg_gen_f1') ?? '00';
       _genF2Ctrl.text = prefs.getString('dg_gen_f2') ?? '00';
 
-      // If yesterday's panel reading is empty, open setup box automatically
-      if (_prevPanelG1Ctrl.text.isEmpty || _prevPanelG2Ctrl.text.isEmpty) {
-        _editBaseValues = true;
-      }
       _isLoaded = true;
     });
   }
@@ -1403,10 +1398,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     _todayPanelG1Ctrl.clear();
     _todayPanelG2Ctrl.clear();
 
-    setState(() {
-      _editBaseValues = false;
-    });
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1436,10 +1427,10 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   void dispose() {
     _prevPanelG1Ctrl.dispose();
     _prevPanelG2Ctrl.dispose();
-    _prevCumG1Ctrl.dispose();
-    _prevCumG2Ctrl.dispose();
     _todayPanelG1Ctrl.dispose();
     _todayPanelG2Ctrl.dispose();
+    _prevCumG1Ctrl.dispose();
+    _prevCumG2Ctrl.dispose();
     _dateCtrl.dispose();
     _resLevelCtrl.dispose();
     _waterDisCtrl.dispose();
@@ -1458,13 +1449,18 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         const TextInputType.numberWithOptions(decimal: true),
     String? hint,
     String? suffix,
+    Color? labelColor,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: labelColor ?? const Color(0xFFCBD5E1),
+          ),
         ),
         const SizedBox(height: 5),
         TextField(
@@ -1490,28 +1486,34 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       );
     }
 
+    // 1. Panel Readings (Yesterday 9 AM vs Today 9 AM)
     final double prevPanelG1 =
         double.tryParse(_prevPanelG1Ctrl.text.trim()) ?? 0.0;
     final double prevPanelG2 =
         double.tryParse(_prevPanelG2Ctrl.text.trim()) ?? 0.0;
-    final double prevCumG1 =
-        double.tryParse(_prevCumG1Ctrl.text.trim()) ?? 0.0;
-    final double prevCumG2 =
-        double.tryParse(_prevCumG2Ctrl.text.trim()) ?? 0.0;
-
     final double? todayPanelG1 =
         double.tryParse(_todayPanelG1Ctrl.text.trim());
     final double? todayPanelG2 =
         double.tryParse(_todayPanelG2Ctrl.text.trim());
 
+    // Daily difference = Today Panel Reading - Yesterday Panel Reading
     final double dailyG1 =
         (todayPanelG1 != null) ? (todayPanelG1 - prevPanelG1) : 0.0;
     final double dailyG2 =
         (todayPanelG2 != null) ? (todayPanelG2 - prevPanelG2) : 0.0;
-    final double totalDailyGen = dailyG1 + dailyG2;
 
+    // 2. Mechchara dawasak duwapu samastha agaya (Previous Cumulative G1 & G2)
+    final double prevCumG1 =
+        double.tryParse(_prevCumG1Ctrl.text.trim()) ?? 0.0;
+    final double prevCumG2 =
+        double.tryParse(_prevCumG2Ctrl.text.trim()) ?? 0.0;
+
+    // 3. New Cumulative G1 & G2 = Samastha Agaya + Daily Gen
     final double newCumG1 = prevCumG1 + dailyG1;
     final double newCumG2 = prevCumG2 + dailyG2;
+
+    // Totle Reading = Today G1 Daily + Today G2 Daily
+    final double totalDailyGen = dailyG1 + dailyG2;
 
     final bool hasNegativeDiff =
         (todayPanelG1 != null && dailyG1 < 0) ||
@@ -1552,18 +1554,6 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
         ),
         actions: [
           IconButton(
-            tooltip: 'Edit Previous / Base Readings',
-            icon: Icon(
-              _editBaseValues ? Icons.check_circle : Icons.edit_note,
-              color: const Color(0xFFF59E0B),
-            ),
-            onPressed: () {
-              setState(() {
-                _editBaseValues = !_editBaseValues;
-              });
-            },
-          ),
-          IconButton(
             tooltip: 'About App',
             icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
             onPressed: () => showCommonAboutDialog(context),
@@ -1575,147 +1565,21 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. YESTERDAY / PREVIOUS BASE READINGS CARD
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _editBaseValues
-                      ? const Color(0xFFF59E0B)
-                      : const Color(0xFF334155),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'PREVIOUS / YESTERDAY READINGS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: Color(0xFFF59E0B),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _editBaseValues = !_editBaseValues;
-                          });
-                        },
-                        child: Text(
-                          _editBaseValues ? 'Done' : 'Edit Base',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF38BDF8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (_editBaseValues) ...[
-                    const Text(
-                      'Set yesterday 9:00 AM panel meter readings & cumulative totals:',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildLabeledInput(
-                            'Yesterday Panel G1',
-                            _prevPanelG1Ctrl,
-                            hint: 'e.g. 5420.10',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildLabeledInput(
-                            'Yesterday Panel G2',
-                            _prevPanelG2Ctrl,
-                            hint: 'e.g. 4810.25',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildLabeledInput(
-                            'Prev Cum. G1 (Mwh)',
-                            _prevCumG1Ctrl,
-                            hint: '122292.19',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildLabeledInput(
-                            'Prev Cum. G2 (Mwh)',
-                            _prevCumG2Ctrl,
-                            hint: '107490.64',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Yesterday Panel G1: ${prevPanelG1.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFFCBD5E1)),
-                        ),
-                        Text(
-                          'G2: ${prevPanelG2.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFFCBD5E1)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Prev Cum. G1: ${prevCumG1.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF94A3B8)),
-                        ),
-                        Text(
-                          'Cum. G2: ${prevCumG2.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF94A3B8)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // 2. TODAY 9:00 AM PANEL METER INPUTS
+            // ================================================================
+            // KOTUWU 1: PANEL METER READINGS (4 INPUTS: YESTERDAY & TODAY)
+            // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF38BDF8), width: 1.3),
+                border: Border.all(color: const Color(0xFF38BDF8), width: 1.4),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'TODAY 9:00 AM PANEL METER READINGS',
+                    '1. PANEL METER READINGS (4 READINGS)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -1728,22 +1592,46 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                     children: [
                       Expanded(
                         child: _buildLabeledInput(
-                          'Today Panel G1',
-                          _todayPanelG1Ctrl,
-                          hint: '9:00 AM G1',
+                          'Yesterday Panel G1',
+                          _prevPanelG1Ctrl,
+                          hint: 'e.g. 16736.67',
+                          labelColor: const Color(0xFFFBBF24),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildLabeledInput(
-                          'Today Panel G2',
-                          _todayPanelG2Ctrl,
-                          hint: '9:00 AM G2',
+                          'Yesterday Panel G2',
+                          _prevPanelG2Ctrl,
+                          hint: 'e.g. 14099.38',
+                          labelColor: const Color(0xFFFBBF24),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Today 9 AM Panel G1',
+                          _todayPanelG1Ctrl,
+                          hint: 'e.g. 16766.44',
+                          labelColor: const Color(0xFF38BDF8),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Today 9 AM Panel G2',
+                          _todayPanelG2Ctrl,
+                          hint: 'e.g. 14127.29',
+                          labelColor: const Color(0xFF38BDF8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFF334155), height: 22),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1772,7 +1660,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                   if (hasNegativeDiff) ...[
                     const SizedBox(height: 8),
                     const Text(
-                      'Warning: Today reading is smaller than yesterday reading!',
+                      'Warning: Today panel reading is smaller than yesterday panel reading!',
                       style:
                           TextStyle(fontSize: 12, color: Color(0xFFF87171)),
                     ),
@@ -1782,7 +1670,58 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             ),
             const SizedBox(height: 14),
 
-            // 3. AUTO-CALCULATED SUMMARY CARD
+            // ================================================================
+            // KOTUWU 2: MECHCHARA DAWASAK DUWAPU SAMASTHA AGAYA (PREV CUMULATIVE)
+            // ================================================================
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF59E0B), width: 1.4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '2. PREVIOUS CUMULATIVE TOTAL (මෙතෙක් දුවපු සමස්ත අගය)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Prev Total G1 (Mwh)',
+                          _prevCumG1Ctrl,
+                          hint: '122262.42',
+                          labelColor: const Color(0xFFFDE68A),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Prev Total G2 (Mwh)',
+                          _prevCumG2Ctrl,
+                          hint: '107462.73',
+                          labelColor: const Color(0xFFFDE68A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ================================================================
+            // KOTUWU 3: EKATHUWA / FINAL CALCULATED TOTALS
+            // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1792,18 +1731,103 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+                border: Border.all(color: const Color(0xFF10B981), width: 1.6),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'TOTLE READING (DAILY GENERATION)',
+                    '3. FINAL TOTALS (එකතුව)',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
                       color: Color(0xFF6EE7B7),
                     ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A).withOpacity(0.75),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF10B981)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'New G1 Meter Reading',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFFA7F3D0)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${newCumG1.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const Text(
+                                'Mwh',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF10B981)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A).withOpacity(0.75),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF10B981)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'New G2 Meter Reading',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFFA7F3D0)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${newCumG2.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const Text(
+                                'Mwh',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF10B981)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFF047857), height: 22),
+                  const Text(
+                    'TOTLE READING (DAILY G1 + G2)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF6EE7B7),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -1814,7 +1838,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                       Text(
                         totalDailyGen.toStringAsFixed(2),
                         style: const TextStyle(
-                          fontSize: 38,
+                          fontSize: 36,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -1830,50 +1854,12 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                       ),
                     ],
                   ),
-                  const Divider(color: Color(0xFF047857), height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'New G1 Cumulative:',
-                        style:
-                            TextStyle(fontSize: 12, color: Color(0xFFA7F3D0)),
-                      ),
-                      Text(
-                        '${newCumG1.toStringAsFixed(2)} Mwh',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'New G2 Cumulative:',
-                        style:
-                            TextStyle(fontSize: 12, color: Color(0xFFA7F3D0)),
-                      ),
-                      Text(
-                        '${newCumG2.toStringAsFixed(2)} Mwh',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
 
-            // 4. OTHER REPORT FIELDS (USER FILLS THESE)
+            // 4. OTHER REPORT FIELDS
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1885,7 +1871,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'PLANT & DISCHARGE DETAILS',
+                    '4. PLANT & DISCHARGE DETAILS',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
