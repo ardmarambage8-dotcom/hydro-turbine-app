@@ -535,4 +535,69 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                           style: TextStyle(
                               fontSize: 13, color: Color(0xFF94A3B8)),
                         ),
-                     
+                                             Switch(
+                          value: _useInterpolated,
+                          activeColor: const Color(0xFF38BDF8),
+                          onChanged: (v) {
+                            setState(() {
+                              _useInterpolated = v;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildParamBox(
+      String code, String label, String value, Color accentColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.5)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              code,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF94A3B8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
