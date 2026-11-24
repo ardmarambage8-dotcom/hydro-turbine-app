@@ -575,4 +575,475 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
           ),
           IconButton(
             tooltip: 'Reset Defaults',
-            icon: const Icon(Icons.refresh, co
+                        icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
+            onPressed: () {
+              _waterLevelController.text = '89.25';
+              _outflowController.text = '29.0';
+              _currentGenController.text = '2300';
+              _reductionPctController.text = '20';
+              setState(() {
+                _runningUnits = 2;
+                _useInterpolated = false;
+              });
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // INPUT CARD
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'PLANT INPUTS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Water Level (m)',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _waterLevelController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 89.25',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Net Head H (m)',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              height: 52,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              alignment: Alignment.centerLeft,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: const Color(0xFF334155)),
+                              ),
+                              child: Text(
+                                netHead != null
+                                    ? netHead.toStringAsFixed(2)
+                                    : '--',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Total Outflow Qmax (Cum/s)',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFCBD5E1)),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _outflowController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. 29.0',
+                      suffixText: 'Cum/s',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Running Units:',
+                        style:
+                            TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
+                      ),
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment<int>(
+                            value: 1,
+                            label: Text('1 Turbine'),
+                          ),
+                          ButtonSegment<int>(
+                            value: 2,
+                            label: Text('2 Turbines'),
+                          ),
+                        ],
+                        selected: {_runningUnits},
+                        onSelectionChanged: (Set<int> newSelection) {
+                          setState(() {
+                            _runningUnits = newSelection.first;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  if (flowPerTurbine != null && flowPerTurbine > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Flow per Turbine: ${flowPerTurbine.toStringAsFixed(2)} Cum/s each',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            if (statusWarning != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF78350F).withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        statusWarning,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFFFDE68A)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // POWER OUTPUT CARD
+            if (powerPerTurbineKw != null && nearestPoint != null) ...[
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: const Color(0xFF10B981), width: 1.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'OUTPUT POWER (PER TURBINE)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF065F46),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'H=${nearestPoint.head.toStringAsFixed(1)}m, Q=${nearestPoint.flow}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          powerPerTurbineKw.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'kW',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${(powerPerTurbineKw / 1000.0).toStringAsFixed(3)} MW',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFA7F3D0),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Color(0xFF047857), height: 22),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'TOTAL PLANT ($_runningUnits UNIT${_runningUnits > 1 ? 'S' : ''}):',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFA7F3D0),
+                          ),
+                        ),
+                        Text(
+                          '${totalPlantPowerKw!.toStringAsFixed(2)} kW (${(totalPlantPowerKw / 1000.0).toStringAsFixed(3)} MW)',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // CONTROL SETTINGS CARD
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TURBINE CONTROL SETTINGS',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        _buildParamBox(
+                          'BA',
+                          'Blade Angle',
+                          '${nearestPoint.ba}°',
+                          const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildParamBox(
+                          'WGA',
+                          'Wicket Gate',
+                          '${nearestPoint.wga}°',
+                          const Color(0xFF38BDF8),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildParamBox(
+                          'EF',
+                          'Efficiency',
+                          '${finalEf!.toStringAsFixed(1)}%',
+                          const Color(0xFF10B981),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Interpolate intermediate EF values:',
+                          style:
+                              TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                        ),
+                        Switch(
+                          value: _useInterpolated,
+                          activeColor: const Color(0xFF38BDF8),
+                          onChanged: (v) {
+                            setState(() {
+                              _useInterpolated = v;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 14),
+
+            // CEB PERCENTAGE REDUCTION CALCULATOR CARD
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'CEB POWER REDUCTION (%)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                      if (totalPlantPowerKw != null)
+                        InkWell(
+                          onTap: () {
+                            _currentGenController.text =
+                                totalPlantPowerKw!.toStringAsFixed(0);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFF38BDF8)),
+                            ),
+                            child: const Text(
+                              'Use Plant Power',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF38BDF8),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Generating Power (kW)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _currentGenController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 2300',
+                                suffixText: 'kW',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Reduce (%)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _reductionPctController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+   
