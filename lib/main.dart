@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'turbine_data.dart';
 
 void main() {
@@ -14,7 +15,7 @@ class HydroTurbineApp extends StatelessWidget {
       title: 'ZZ1540 Turbine Calculator',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        scaffoldBackgroundColor: const Color(0xFF0B1120),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF38BDF8),
           secondary: Color(0xFF10B981),
@@ -35,9 +36,197 @@ class HydroTurbineApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 2),
           ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         ),
       ),
-      home: const TurbineCalculatorScreen(),
+      home: const PinLockScreen(),
+    );
+  }
+}
+
+class PinLockScreen extends StatefulWidget {
+  const PinLockScreen({super.key});
+
+  @override
+  State<PinLockScreen> createState() => _PinLockScreenState();
+}
+
+class _PinLockScreenState extends State<PinLockScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  String _savedPin = '1234';
+  String _errorMessage = '';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPin();
+  }
+
+  Future<void> _loadPin() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _savedPin = prefs.getString('app_pin') ?? '1234';
+      _isLoading = false;
+    });
+  }
+
+  void _verifyPin() {
+    if (_pinController.text.trim() == _savedPin) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const TurbineCalculatorScreen(),
+        ),
+      );
+    } else {
+      setState(() {
+        _errorMessage = 'Incorrect PIN. Please try again.';
+        _pinController.clear();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    '1795510508002.jpg',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.bolt,
+                      size: 80,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'EAGLE POWER',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Turbine Running Calculator • ZZ1540',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Enter Security PIN',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF38BDF8),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _pinController,
+                        keyboardType: TextInputType.number,
+                        obscureText: true,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8,
+                        ),
+                        decoration: const InputDecoration(
+                          counterText: '',
+                          hintText: '••••',
+                          hintStyle: TextStyle(
+                            letterSpacing: 8,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        onSubmitted: (_) => _verifyPin(),
+                      ),
+                      if (_errorMessage.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _errorMessage,
+                          style: const TextStyle(
+                            color: Color(0xFFF87171),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _verifyPin,
+                          icon: const Icon(Icons.lock_open, size: 18),
+                          label: const Text(
+                            'UNLOCK CALCULATOR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Default PIN: 1234',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -51,553 +240,339 @@ class TurbineCalculatorScreen extends StatefulWidget {
 }
 
 class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
-  static const double tailraceConstant = 78.64;
-
-  final TextEditingController _levelController =
+  final TextEditingController _waterLevelController =
       TextEditingController(text: '89.25');
-  final TextEditingController _headController =
-      TextEditingController(text: '10.61');
-  final TextEditingController _flowController =
+  final TextEditingController _outflowController =
       TextEditingController(text: '29.0');
+  final TextEditingController _currentGenController =
+      TextEditingController(text: '2300');
+  final TextEditingController _reductionPctController =
+      TextEditingController(text: '20');
 
-  int _turbineCount = 2; // Default 2 Turbines
-  bool _useInterpolated = false; // Default: Nearest Chart Cell (Standard)
-  bool _isUpdatingText = false;
+  int _runningUnits = 2;
+  bool _useInterpolated = false;
+
+  static const double _tailwaterOffset = 78.64;
+
+  @override
+  void initState() {
+    super.initState();
+    _waterLevelController.addListener(_recalculate);
+    _outflowController.addListener(_recalculate);
+    _currentGenController.addListener(_recalculate);
+    _reductionPctController.addListener(_recalculate);
+  }
+
+  void _recalculate() {
+    setState(() {});
+  }
 
   @override
   void dispose() {
-    _levelController.dispose();
-    _headController.dispose();
-    _flowController.dispose();
+    _waterLevelController.dispose();
+    _outflowController.dispose();
+    _currentGenController.dispose();
+    _reductionPctController.dispose();
     super.dispose();
   }
 
-  void _onWaterLevelChanged(String val) {
-    if (_isUpdatingText) return;
-    _isUpdatingText = true;
-    final level = double.tryParse(val);
-    if (level != null) {
-      final h = level - tailraceConstant;
-      _headController.text = h.toStringAsFixed(2);
-    } else {
-      _headController.text = '';
-    }
-    _isUpdatingText = false;
-    setState(() {});
+  void _showChangePinDialog() {
+    final newPinCtrl = TextEditingController();
+    final confirmPinCtrl = TextEditingController();
+    String dialogError = '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.lock_reset, color: Color(0xFF38BDF8)),
+                  SizedBox(width: 8),
+                  Text('Change Security PIN', style: TextStyle(fontSize: 18)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: newPinCtrl,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'New PIN (4-6 digits)',
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPinCtrl,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New PIN',
+                      counterText: '',
+                    ),
+                  ),
+                  if (dialogError.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      dialogError,
+                      style: const TextStyle(
+                          color: Color(0xFFF87171), fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final p1 = newPinCtrl.text.trim();
+                    final p2 = confirmPinCtrl.text.trim();
+                    if (p1.length < 4) {
+                      setDialogState(() {
+                        dialogError = 'PIN must be at least 4 digits.';
+                      });
+                      return;
+                    }
+                    if (p1 != p2) {
+                      setDialogState(() {
+                        dialogError = 'PINs do not match.';
+                      });
+                      return;
+                    }
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('app_pin', p1);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Security PIN updated successfully!'),
+                          backgroundColor: Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Save PIN'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
-  void _onHeadChanged(String val) {
-    if (_isUpdatingText) return;
-    _isUpdatingText = true;
-    final h = double.tryParse(val);
-    if (h != null) {
-      final level = h + tailraceConstant;
-      _levelController.text = level.toStringAsFixed(2);
-    } else {
-      _levelController.text = '';
-    }
-    _isUpdatingText = false;
-    setState(() {});
-  }
-
-  void _resetAll() {
-    _isUpdatingText = true;
-    _levelController.clear();
-    _headController.clear();
-    _flowController.clear();
-    _isUpdatingText = false;
-    setState(() {});
-  }
-
-  /// Bilinear interpolation for Efficiency (EF)
-  double? _interpolateEf(double h, double q) {
-    final heads = TurbineChartData.heads;
-    final flows = TurbineChartData.flows;
-
-    if (h < heads.first || h > heads.last || q < flows.first || q > flows.last) {
-      return null;
-    }
-
-    int hIdx0 = 0;
-    for (int i = 0; i < heads.length - 1; i++) {
-      if (h >= heads[i] && h <= heads[i + 1]) {
-        hIdx0 = i;
-        break;
-      }
-    }
-    final int hIdx1 = (hIdx0 + 1).clamp(0, heads.length - 1);
-
-    int fIdx0 = 0;
-    for (int i = 0; i < flows.length - 1; i++) {
-      if (q >= flows[i] && q <= flows[i + 1]) {
-        fIdx0 = i;
-        break;
-      }
-    }
-    final int fIdx1 = (fIdx0 + 1).clamp(0, flows.length - 1);
-
-    final f00 = flows[fIdx0];
-    final f11 = flows[fIdx1];
-
-    final p00 = TurbineChartData.grid[f00]?[hIdx0];
-    final p10 = TurbineChartData.grid[f00]?[hIdx1];
-    final p01 = TurbineChartData.grid[f11]?[hIdx0];
-    final p11 = TurbineChartData.grid[f11]?[hIdx1];
-
-    if (p00 == null || p10 == null || p01 == null || p11 == null) {
-      return null;
-    }
-
-    final h0 = heads[hIdx0];
-    final h1 = heads[hIdx1];
-    final tx = (h1 == h0) ? 0.0 : (h - h0) / (h1 - h0);
-    final ty = (f11 == f00) ? 0.0 : (q - f00) / (f11 - f00);
-
-    final ef0 = p00.ef * (1 - tx) + p10.ef * tx;
-    final ef1 = p01.ef * (1 - tx) + p11.ef * tx;
-    return ef0 * (1 - ty) + ef1 * ty;
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  '1795510508002.jpg',
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.bolt,
+                    size: 60,
+                    color: Color(0xFF38BDF8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Turbine Running Calculator',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF38BDF8)),
+                ),
+                child: const Text(
+                  'Version 1.1.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF38BDF8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Divider(color: Color(0xFF334155)),
+              const SizedBox(height: 8),
+              const Text(
+                'EAGLE POWER • Hydro Operational Suite',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF10B981),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Turbine Model: ZZ1540 - LJI - 190\n'
+                '• Net Head (H): Water Level - 78.64 m\n'
+                '• Output Power: H × Cum × EF × 9.81 kW\n'
+                '• Includes CEB Load Reduction Calculator',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFCBD5E1),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Divider(color: Color(0xFF334155)),
+              const SizedBox(height: 8),
+              const Text(
+                'Developed by',
+                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Aruna Ruwandipa',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFF59E0B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final double? h = double.tryParse(_headController.text);
-    final double? totalQ = double.tryParse(_flowController.text);
-    final double? unitQ = (totalQ != null) ? totalQ / _turbineCount : null;
+    final double? waterLevel =
+        double.tryParse(_waterLevelController.text.trim());
+    final double? totalOutflow =
+        double.tryParse(_outflowController.text.trim());
 
-    String? warningMsg;
+    final double? netHead =
+        waterLevel != null ? (waterLevel - _tailwaterOffset) : null;
+    final double? flowPerTurbine =
+        totalOutflow != null ? (totalOutflow / _runningUnits) : null;
+
     ChartPoint? nearestPoint;
-    double? usedHeadCol;
-    int? usedFlowRow;
+    double? interpolatedEf;
     double? finalEf;
-    double? unitPowerKw;
-    double? totalPowerKw;
+    double? powerPerTurbineKw;
+    double? totalPlantPowerKw;
+    String? statusWarning;
 
-    if (h != null && unitQ != null) {
-      if (h < 6.0 || h > 16.5) {
-        warningMsg = 'Net Head ($h m) is outside Chart range (6.0m – 16.5m)';
-      } else if (unitQ < 6.0 || unitQ > 22.0) {
-        warningMsg =
-            'Per-Turbine Flow (${unitQ.toStringAsFixed(2)} Cum/s) is outside Chart range (6 – 22 Cum/s)';
+    if (netHead == null || flowPerTurbine == null) {
+      statusWarning = 'Enter valid numeric values for Water Level and Outflow.';
+    } else if (netHead <= 0) {
+      statusWarning =
+          'Water Level must be greater than $_tailwaterOffset m (Net Head H > 0).';
+    } else if (flowPerTurbine <= 0) {
+      statusWarning = 'Total Outflow must be greater than 0 Cum/s.';
+    } else {
+      nearestPoint = TurbineChartData.getNearestPoint(netHead, flowPerTurbine);
+      interpolatedEf =
+          TurbineChartData.getInterpolatedEf(netHead, flowPerTurbine);
+
+      if (nearestPoint == null) {
+        statusWarning =
+            'Operating point (H=${netHead.toStringAsFixed(2)}m, Q=${flowPerTurbine.toStringAsFixed(2)} Cum/s) is outside the valid chart region.';
       } else {
-        final hIdx = TurbineChartData.nearestHeadIndex(h);
-        final fRow = TurbineChartData.nearestFlow(unitQ);
-        usedHeadCol = TurbineChartData.heads[hIdx];
-        usedFlowRow = fRow;
-        nearestPoint = TurbineChartData.grid[fRow]?[hIdx];
+        finalEf = _useInterpolated
+            ? (interpolatedEf ?? nearestPoint.ef)
+            : nearestPoint.ef;
+        powerPerTurbineKw =
+            netHead * flowPerTurbine * (finalEf / 100.0) * 9.81;
+        totalPlantPowerKw = powerPerTurbineKw * _runningUnits;
 
-        if (nearestPoint == null) {
-          warningMsg =
-              'Operating point (H=${usedHeadCol}m, Q=$usedFlowRow Cum/s) is in the blank/restricted zone of the chart!';
-        } else {
-          if (_useInterpolated) {
-            finalEf = _interpolateEf(h, unitQ) ?? nearestPoint.ef;
-          } else {
-            finalEf = nearestPoint.ef;
-          }
-          // Power (kW) = H x Cum x (EF / 100) x 9.81
-          unitPowerKw = h * unitQ * (finalEf / 100.0) * 9.81;
-          totalPowerKw = unitPowerKw * _turbineCount;
+        if (netHead < 6.0 ||
+            netHead > 20.0 ||
+            flowPerTurbine < 6.0 ||
+            flowPerTurbine > 21.0) {
+          statusWarning =
+              'Note: H or Flow is outside standard chart bounds (H: 6–20m, Q: 6–21 Cum/s). Using nearest chart boundary.';
         }
       }
     }
 
+    // CEB Percentage Reduction Calculation
+    final double currentGenKw =
+        double.tryParse(_currentGenController.text.trim()) ?? 0.0;
+    final double reductionPct =
+        double.tryParse(_reductionPctController.text.trim()) ?? 0.0;
+    final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
+    final double targetGenKw =
+        (currentGenKw - reducedAmountKw).clamp(0.0, double.infinity);
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Turbine Running Calculator',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Chart: ZZ1540 - LJI - 190',
-              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              'Chart: ZZ1540 - LJI - 190 • Eagle Power',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
         ),
         actions: [
           IconButton(
-            onPressed: _resetAll,
-            icon: const Icon(Icons.refresh, color: Color(0xFF38BDF8)),
-            tooltip: 'Clear Inputs',
+            tooltip: 'Change PIN',
+            icon: const Icon(Icons.lock_outline, color: Color(0xFFF59E0B)),
+            onPressed: _showChangePinDialog,
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // INPUT CARD
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'PLANT INPUTS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                      color: Color(0xFF38BDF8),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _levelController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                          decoration: const InputDecoration(
-                            labelText: 'Water Level (m)',
-                            hintText: 'e.g. 89.25',
-                          ),
-                          onChanged: _onWaterLevelChanged,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _headController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF38BDF8)),
-                          decoration: const InputDecoration(
-                            labelText: 'Net Head H (m)',
-                            helperText: 'Level - 78.64',
-                          ),
-                          onChanged: _onHeadChanged,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _flowController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                    decoration: InputDecoration(
-                      labelText: _turbineCount == 2
-                          ? 'Total Outflow Qmax (Cum/s)'
-                          : 'Single Turbine Flow Q (Cum/s)',
-                      suffixText: 'Cum/s',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 14),
-                  // Turbine Count Selector
-                  Row(
-                    children: [
-                      const Text(
-                        'Running Units:',
-                        style: TextStyle(
-                            fontSize: 14, color: Color(0xFFCBD5E1)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SegmentedButton<int>(
-                          segments: const [
-                            ButtonSegment(value: 1, label: Text('1 Turbine')),
-                            ButtonSegment(value: 2, label: Text('2 Turbines')),
-                          ],
-                          selected: {_turbineCount},
-                          onSelectionChanged: (val) {
-                            setState(() {
-                              _turbineCount = val.first;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_turbineCount == 2 && unitQ != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Flow per Turbine: ${unitQ.toStringAsFixed(2)} Cum/s each',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // WARNING BANNER IF OUT OF RANGE
-            if (warningMsg != null)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF450A0A),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEF4444)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        color: Color(0xFFEF4444), size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        warningMsg,
-                        style: const TextStyle(
-                            color: Color(0xFFFCA5A5),
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // RESULTS SECTION
-            if (warningMsg == null &&
-                nearestPoint != null &&
-                unitPowerKw != null &&
-                totalPowerKw != null) ...[
-              // POWER OUTPUT CARD
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF10B981), width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'OUTPUT POWER (PER TURBINE)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
-                            color: Color(0xFF6EE7B7),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF065F46),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Chart Cell: H=${usedHeadCol}m, Q=$usedFlowRow',
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA7F3D0)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          unitPowerKw.toStringAsFixed(2),
-                          style: const TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'kW',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF6EE7B7),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${(unitPowerKw / 1000).toStringAsFixed(3)} MW',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF34D399),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_turbineCount == 2) ...[
-                      const Divider(color: Color(0xFF047857), height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'TOTAL PLANT POWER (2 UNITS):',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFA7F3D0),
-                            ),
-                          ),
-                          Text(
-                            '${totalPowerKw.toStringAsFixed(2)} kW (${(totalPowerKw / 1000).toStringAsFixed(3)} MW)',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // TURBINE PARAMETERS CARD (BA, WGA, EF)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'TURBINE CONTROL SETTINGS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                        color: Color(0xFF38BDF8),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildParamBox(
-                          'BA',
-                          'Blade Angle',
-                          '${nearestPoint.ba}°',
-                          const Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildParamBox(
-                          'WGA',
-                          'Wicket Gate',
-                          '${nearestPoint.wga}°',
-                          const Color(0xFF38BDF8),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildParamBox(
-                          'EF',
-                          'Efficiency',
-                          '${finalEf!.toStringAsFixed(1)}%',
-                          const Color(0xFF10B981),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Interpolate intermediate EF values:',
-                          style: TextStyle(
-                              fontSize: 13, color: Color(0xFF94A3B8)),
-                        ),
-                                             Switch(
-                          value: _useInterpolated,
-                          activeColor: const Color(0xFF38BDF8),
-                          onChanged: (v) {
-                            setState(() {
-                              _useInterpolated = v;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildParamBox(
-      String code, String label, String value, Color accentColor) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withOpacity(0.5)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              code,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: accentColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF94A3B8),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+          IconButton(
+            tooltip: 'About App',
+            icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
+            onPressed: _showAboutDialog,
+          ),
+          IconButton(
+            tooltip: 'Reset Defaults',
+            icon: const Icon(Icons.refresh, co
