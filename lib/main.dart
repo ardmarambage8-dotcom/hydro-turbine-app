@@ -484,6 +484,50 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
     );
   }
 
+  Widget _buildParamBox(
+      String code, String label, String value, Color accentColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.5)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              code,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF94A3B8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double? waterLevel =
@@ -502,6 +546,8 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
     double? powerPerTurbineKw;
     double? totalPlantPowerKw;
     String? statusWarning;
+    int chartH = 0;
+    int chartQ = 0;
 
     if (netHead == null || flowPerTurbine == null) {
       statusWarning = 'Enter valid numeric values for Water Level and Outflow.';
@@ -519,6 +565,8 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
         statusWarning =
             'Operating point (H=${netHead.toStringAsFixed(2)}m, Q=${flowPerTurbine.toStringAsFixed(2)} Cum/s) is outside the valid chart region.';
       } else {
+        chartH = netHead.round().clamp(6, 20);
+        chartQ = flowPerTurbine.round().clamp(6, 21);
         finalEf = _useInterpolated
             ? (interpolatedEf ?? nearestPoint.ef)
             : nearestPoint.ef;
@@ -536,10 +584,9 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
       }
     }
 
-    // CEB Percentage Reduction Calculation
     final double currentGenKw =
         double.tryParse(_currentGenController.text.trim()) ?? 0.0;
-    final double reductionPct =
+        final double reductionPct =
         double.tryParse(_reductionPctController.text.trim()) ?? 0.0;
     final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
     final double targetGenKw =
@@ -575,7 +622,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
           ),
           IconButton(
             tooltip: 'Reset Defaults',
-                        icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
+            icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
             onPressed: () {
               _waterLevelController.text = '89.25';
               _outflowController.text = '29.0';
@@ -594,7 +641,6 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // INPUT CARD
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -741,9 +787,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 14),
-
             if (statusWarning != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -768,8 +812,6 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                   ],
                 ),
               ),
-
-            // POWER OUTPUT CARD
             if (powerPerTurbineKw != null && nearestPoint != null) ...[
               Container(
                 padding: const EdgeInsets.all(18),
@@ -806,7 +848,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'H=${nearestPoint.head.toStringAsFixed(1)}m, Q=${nearestPoint.flow}',
+                            'H=${chartH.toDouble().toStringAsFixed(1)}m, Q=$chartQ',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -874,10 +916,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 14),
-
-              // CONTROL SETTINGS CARD
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -946,10 +985,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                 ),
               ),
             ],
-
             const SizedBox(height: 14),
-
-            // CEB PERCENTAGE REDUCTION CALCULATOR CARD
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1021,29 +1057,4 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                               style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.bold),
                               decoration: const InputDecoration(
-                                hintText: 'e.g. 2300',
-                                suffixText: 'kW',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Reduce (%)',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _reductionPctController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-   
+                    
