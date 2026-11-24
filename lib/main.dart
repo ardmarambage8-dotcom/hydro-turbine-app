@@ -477,12 +477,9 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                '• Turbine Model: ZZ1540 - LJI - 190
-'
-                '• Net Head (H): Water Level - 78.64 m
-'
-                '• Output Power: H × Cum × EF × 9.81 kW
-'
+                '• Turbine Model: ZZ1540 - LJI - 190\n'
+                '• Net Head (H): Water Level - 78.64 m\n'
+                '• Output Power: H × Cum × EF × 9.81 kW\n'
                 '• Includes CEB Load Reduction Calculator',
                 style: TextStyle(
                   fontSize: 12,
