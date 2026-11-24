@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'turbine_data.dart';
 
@@ -76,7 +77,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
     if (_pinController.text.trim() == _savedPin) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => const TurbineCalculatorScreen(),
+          builder: (_) => const MainHomeScreen(),
         ),
       );
     } else {
@@ -135,7 +136,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Turbine Running Calculator • ZZ1540',
+                  'Hydro Operational Suite • ZZ1540',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF94A3B8),
@@ -198,7 +199,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                           onPressed: _verifyPin,
                           icon: const Icon(Icons.lock_open, size: 18),
                           label: const Text(
-                            'UNLOCK CALCULATOR',
+                            'UNLOCK SUITE',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.8,
@@ -231,15 +232,276 @@ class _PinLockScreenState extends State<PinLockScreen> {
   }
 }
 
-class TurbineCalculatorScreen extends StatefulWidget {
-  const TurbineCalculatorScreen({super.key});
+class MainHomeScreen extends StatefulWidget {
+  const MainHomeScreen({super.key});
 
   @override
-  State<TurbineCalculatorScreen> createState() =>
-      _TurbineCalculatorScreenState();
+  State<MainHomeScreen> createState() => _MainHomeScreenState();
 }
 
-class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
+class _MainHomeScreenState extends State<MainHomeScreen> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          TurbineCalculatorTab(),
+          DailyGenerationTab(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
+        ),
+        child: NavigationBar(
+          backgroundColor: const Color(0xFF0F172A),
+          indicatorColor: const Color(0xFF1E293B),
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (idx) {
+            setState(() {
+              _selectedIndex = idx;
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.calculate_outlined),
+              selectedIcon: Icon(Icons.calculate, color: Color(0xFF38BDF8)),
+              label: 'Calculator',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.assignment_outlined),
+              selectedIcon: Icon(Icons.assignment, color: Color(0xFF10B981)),
+              label: 'Daily Gen (9 AM)',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void showCommonChangePinDialog(BuildContext context) {
+  final newPinCtrl = TextEditingController();
+  final confirmPinCtrl = TextEditingController();
+  String dialogError = '';
+
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.lock_reset, color: Color(0xFF38BDF8)),
+                SizedBox(width: 8),
+                Text('Change Security PIN', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: newPinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'New PIN (4-6 digits)',
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmPinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm New PIN',
+                    counterText: '',
+                  ),
+                ),
+                if (dialogError.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    dialogError,
+                    style:
+                        const TextStyle(color: Color(0xFFF87171), fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final p1 = newPinCtrl.text.trim();
+                  final p2 = confirmPinCtrl.text.trim();
+                  if (p1.length < 4) {
+                    setDialogState(() {
+                      dialogError = 'PIN must be at least 4 digits.';
+                    });
+                    return;
+                  }
+                  if (p1 != p2) {
+                    setDialogState(() {
+                      dialogError = 'PINs do not match.';
+                    });
+                    return;
+                  }
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('app_pin', p1);
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Security PIN updated successfully!'),
+                        backgroundColor: Color(0xFF10B981),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Save PIN'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+void showCommonAboutDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                '1795510508002.jpg',
+                width: 88,
+                height: 88,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.bolt,
+                  size: 60,
+                  color: Color(0xFF38BDF8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Turbine Running Calculator',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF38BDF8)),
+              ),
+              child: const Text(
+                'Version 1.2.0',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF38BDF8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFF334155)),
+            const SizedBox(height: 8),
+            const Text(
+              'EAGLE POWER • Hydro Operational Suite',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF10B981),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '• Turbine Model: ZZ1540 - LJI - 190\n'
+              '• Net Head (H): Water Level - 78.64 m\n'
+              '• Output Power: H × Cum × EF × 9.81 kW\n'
+              '• CEB Load Reduction Calculator\n'
+              '• Daily 9:00 AM Generation Report (@Maduruoya#)',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFFCBD5E1),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFF334155)),
+            const SizedBox(height: 8),
+            const Text(
+              'Developed by',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Aruna Ruwandipa',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFF59E0B),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+// ============================================================================
+// TAB 1: TURBINE RUNNING CALCULATOR + CEB REDUCTION
+// ============================================================================
+class TurbineCalculatorTab extends StatefulWidget {
+  const TurbineCalculatorTab({super.key});
+
+  @override
+  State<TurbineCalculatorTab> createState() => _TurbineCalculatorTabState();
+}
+
+class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
   final TextEditingController _waterLevelController =
       TextEditingController(text: '89.25');
   final TextEditingController _outflowController =
@@ -247,7 +509,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
   final TextEditingController _currentGenController =
       TextEditingController(text: '2300');
   final TextEditingController _reductionPctController =
-      TextEditingController(text: '20');
+      TextEditingController(text: '25');
 
   int _runningUnits = 2;
   bool _useInterpolated = false;
@@ -306,214 +568,6 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
     final double efQ1 = p11.ef + (p12.ef - p11.ef) * hFrac;
     final double efQ2 = p21.ef + (p22.ef - p21.ef) * hFrac;
     return efQ1 + (efQ2 - efQ1) * qFrac;
-  }
-
-  void _showChangePinDialog() {
-    final newPinCtrl = TextEditingController();
-    final confirmPinCtrl = TextEditingController();
-    String dialogError = '';
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.lock_reset, color: Color(0xFF38BDF8)),
-                  SizedBox(width: 8),
-                  Text('Change Security PIN', style: TextStyle(fontSize: 18)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: newPinCtrl,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'New PIN (4-6 digits)',
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: confirmPinCtrl,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm New PIN',
-                      counterText: '',
-                    ),
-                  ),
-                  if (dialogError.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      dialogError,
-                      style: const TextStyle(
-                          color: Color(0xFFF87171), fontSize: 12),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    final p1 = newPinCtrl.text.trim();
-                    final p2 = confirmPinCtrl.text.trim();
-                    if (p1.length < 4) {
-                      setDialogState(() {
-                        dialogError = 'PIN must be at least 4 digits.';
-                      });
-                      return;
-                    }
-                    if (p1 != p2) {
-                      setDialogState(() {
-                        dialogError = 'PINs do not match.';
-                      });
-                      return;
-                    }
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('app_pin', p1);
-                    if (ctx.mounted) {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Security PIN updated successfully!'),
-                          backgroundColor: Color(0xFF10B981),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save PIN'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showAboutDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  '1795510508002.jpg',
-                  width: 88,
-                  height: 88,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.bolt,
-                    size: 60,
-                    color: Color(0xFF38BDF8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Turbine Running Calculator',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF38BDF8)),
-                ),
-                child: const Text(
-                  'Version 1.1.0',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF38BDF8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Divider(color: Color(0xFF334155)),
-              const SizedBox(height: 8),
-              const Text(
-                'EAGLE POWER • Hydro Operational Suite',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF10B981),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '• Turbine Model: ZZ1540 - LJI - 190\n'
-                '• Net Head (H): Water Level - 78.64 m\n'
-                '• Output Power: H × Cum × EF × 9.81 kW\n'
-                '• Includes CEB Load Reduction Calculator',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFFCBD5E1),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Divider(color: Color(0xFF334155)),
-              const SizedBox(height: 8),
-              const Text(
-                'Developed by',
-                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-              ),
-              const SizedBox(height: 2),
-              const Text(
-                'Aruna Ruwandipa',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFF59E0B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildParamBox(
@@ -644,12 +698,12 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
           IconButton(
             tooltip: 'Change PIN',
             icon: const Icon(Icons.lock_outline, color: Color(0xFFF59E0B)),
-            onPressed: _showChangePinDialog,
+            onPressed: () => showCommonChangePinDialog(context),
           ),
           IconButton(
             tooltip: 'About App',
             icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
-            onPressed: _showAboutDialog,
+            onPressed: () => showCommonAboutDialog(context),
           ),
           IconButton(
             tooltip: 'Reset Defaults',
@@ -658,7 +712,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
               _waterLevelController.text = '89.25';
               _outflowController.text = '29.0';
               _currentGenController.text = '2300';
-              _reductionPctController.text = '20';
+              _reductionPctController.text = '25';
               setState(() {
                 _runningUnits = 2;
                 _useInterpolated = false;
@@ -1118,7 +1172,7 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
                                 color: Color(0xFFF59E0B),
                               ),
                               decoration: const InputDecoration(
-                                hintText: '20',
+                                hintText: '25',
                                 suffixText: '%',
                               ),
                             ),
@@ -1208,6 +1262,811 @@ class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
               ),
             ),
             const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// TAB 2: DAILY GENERATION REPORT (9:00 AM RECORD)
+// ============================================================================
+class DailyGenerationTab extends StatefulWidget {
+  const DailyGenerationTab({super.key});
+
+  @override
+  State<DailyGenerationTab> createState() => _DailyGenerationTabState();
+}
+
+class _DailyGenerationTabState extends State<DailyGenerationTab> {
+  // Stored baseline / yesterday values
+  final TextEditingController _prevPanelG1Ctrl = TextEditingController();
+  final TextEditingController _prevPanelG2Ctrl = TextEditingController();
+  final TextEditingController _prevCumG1Ctrl =
+      TextEditingController(text: '122292.19');
+  final TextEditingController _prevCumG2Ctrl =
+      TextEditingController(text: '107490.64');
+
+  // Today 9:00 AM Panel Readings
+  final TextEditingController _todayPanelG1Ctrl = TextEditingController();
+  final TextEditingController _todayPanelG2Ctrl = TextEditingController();
+
+  // Plant Details for WhatsApp Report
+  final TextEditingController _dateCtrl = TextEditingController();
+  final TextEditingController _resLevelCtrl =
+      TextEditingController(text: '89.25');
+  final TextEditingController _waterDisCtrl =
+      TextEditingController(text: '29');
+  final TextEditingController _mahaweliDisCtrl =
+      TextEditingController(text: '00');
+  final TextEditingController _powerCtrl =
+      TextEditingController(text: '2400');
+  final TextEditingController _cebPfCtrl =
+      TextEditingController(text: '10 minutes');
+  final TextEditingController _genF1Ctrl = TextEditingController(text: '00');
+  final TextEditingController _genF2Ctrl = TextEditingController(text: '00');
+
+  bool _editBaseValues = false;
+  bool _isLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _dateCtrl.text =
+        '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+
+    _loadSavedReadings();
+
+    for (final c in [
+      _prevPanelG1Ctrl,
+      _prevPanelG2Ctrl,
+      _prevCumG1Ctrl,
+      _prevCumG2Ctrl,
+      _todayPanelG1Ctrl,
+      _todayPanelG2Ctrl,
+      _dateCtrl,
+      _resLevelCtrl,
+      _waterDisCtrl,
+      _mahaweliDisCtrl,
+      _powerCtrl,
+      _cebPfCtrl,
+      _genF1Ctrl,
+      _genF2Ctrl,
+    ]) {
+      c.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSavedReadings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _prevPanelG1Ctrl.text = prefs.getString('dg_prev_panel_g1') ?? '';
+      _prevPanelG2Ctrl.text = prefs.getString('dg_prev_panel_g2') ?? '';
+      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122292.19';
+      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107490.64';
+
+      _resLevelCtrl.text = prefs.getString('dg_res_level') ?? '89.25';
+      _waterDisCtrl.text = prefs.getString('dg_water_dis') ?? '29';
+      _mahaweliDisCtrl.text = prefs.getString('dg_mahaweli_dis') ?? '00';
+      _powerCtrl.text = prefs.getString('dg_power') ?? '2400';
+      _cebPfCtrl.text = prefs.getString('dg_ceb_pf') ?? '10 minutes';
+      _genF1Ctrl.text = prefs.getString('dg_gen_f1') ?? '00';
+      _genF2Ctrl.text = prefs.getString('dg_gen_f2') ?? '00';
+
+      // If yesterday's panel reading is empty, open setup box automatically
+      if (_prevPanelG1Ctrl.text.isEmpty || _prevPanelG2Ctrl.text.isEmpty) {
+        _editBaseValues = true;
+      }
+      _isLoaded = true;
+    });
+  }
+
+  Future<void> _saveAndCopyReport({
+    required double? todayPanelG1,
+    required double? todayPanelG2,
+    required double newCumG1,
+    required double newCumG2,
+    required String message,
+  }) async {
+    await Clipboard.setData(ClipboardData(text: message));
+
+    final prefs = await SharedPreferences.getInstance();
+    if (todayPanelG1 != null) {
+      await prefs.setString(
+          'dg_prev_panel_g1', todayPanelG1.toStringAsFixed(2));
+      _prevPanelG1Ctrl.text = todayPanelG1.toStringAsFixed(2);
+    }
+    if (todayPanelG2 != null) {
+      await prefs.setString(
+          'dg_prev_panel_g2', todayPanelG2.toStringAsFixed(2));
+      _prevPanelG2Ctrl.text = todayPanelG2.toStringAsFixed(2);
+    }
+    await prefs.setString('dg_prev_cum_g1', newCumG1.toStringAsFixed(2));
+    await prefs.setString('dg_prev_cum_g2', newCumG2.toStringAsFixed(2));
+    _prevCumG1Ctrl.text = newCumG1.toStringAsFixed(2);
+    _prevCumG2Ctrl.text = newCumG2.toStringAsFixed(2);
+
+    await prefs.setString('dg_res_level', _resLevelCtrl.text.trim());
+    await prefs.setString('dg_water_dis', _waterDisCtrl.text.trim());
+    await prefs.setString('dg_mahaweli_dis', _mahaweliDisCtrl.text.trim());
+    await prefs.setString('dg_power', _powerCtrl.text.trim());
+    await prefs.setString('dg_ceb_pf', _cebPfCtrl.text.trim());
+    await prefs.setString('dg_gen_f1', _genF1Ctrl.text.trim());
+    await prefs.setString('dg_gen_f2', _genF2Ctrl.text.trim());
+
+    _todayPanelG1Ctrl.clear();
+    _todayPanelG2Ctrl.clear();
+
+    setState(() {
+      _editBaseValues = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Saved for tomorrow & Copied! Ready to paste in WhatsApp.'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Future<void> _copyOnly(String message) async {
+    await Clipboard.setData(ClipboardData(text: message));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('WhatsApp message copied to clipboard!'),
+          backgroundColor: Color(0xFF38BDF8),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _prevPanelG1Ctrl.dispose();
+    _prevPanelG2Ctrl.dispose();
+    _prevCumG1Ctrl.dispose();
+    _prevCumG2Ctrl.dispose();
+    _todayPanelG1Ctrl.dispose();
+    _todayPanelG2Ctrl.dispose();
+    _dateCtrl.dispose();
+    _resLevelCtrl.dispose();
+    _waterDisCtrl.dispose();
+    _mahaweliDisCtrl.dispose();
+    _powerCtrl.dispose();
+    _cebPfCtrl.dispose();
+    _genF1Ctrl.dispose();
+    _genF2Ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildLabeledInput(
+    String label,
+    TextEditingController ctrl, {
+    TextInputType keyboardType =
+        const TextInputType.numberWithOptions(decimal: true),
+    String? hint,
+    String? suffix,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
+        ),
+        const SizedBox(height: 5),
+        TextField(
+          controller: ctrl,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixText: suffix,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isLoaded) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final double prevPanelG1 =
+        double.tryParse(_prevPanelG1Ctrl.text.trim()) ?? 0.0;
+    final double prevPanelG2 =
+        double.tryParse(_prevPanelG2Ctrl.text.trim()) ?? 0.0;
+    final double prevCumG1 =
+        double.tryParse(_prevCumG1Ctrl.text.trim()) ?? 0.0;
+    final double prevCumG2 =
+        double.tryParse(_prevCumG2Ctrl.text.trim()) ?? 0.0;
+
+    final double? todayPanelG1 =
+        double.tryParse(_todayPanelG1Ctrl.text.trim());
+    final double? todayPanelG2 =
+        double.tryParse(_todayPanelG2Ctrl.text.trim());
+
+    final double dailyG1 =
+        (todayPanelG1 != null) ? (todayPanelG1 - prevPanelG1) : 0.0;
+    final double dailyG2 =
+        (todayPanelG2 != null) ? (todayPanelG2 - prevPanelG2) : 0.0;
+    final double totalDailyGen = dailyG1 + dailyG2;
+
+    final double newCumG1 = prevCumG1 + dailyG1;
+    final double newCumG2 = prevCumG2 + dailyG2;
+
+    final bool hasNegativeDiff =
+        (todayPanelG1 != null && dailyG1 < 0) ||
+            (todayPanelG2 != null && dailyG2 < 0);
+
+    final String formattedMessage = '''Sluice Power Generation Record.
+
+Date : ${_dateCtrl.text.trim()}
+Reservoir Water Level : ${_resLevelCtrl.text.trim()}
+Water Discharge : ${_waterDisCtrl.text.trim()}m3/s
+Mahaweli Discharge :${_mahaweliDisCtrl.text.trim()}m3/s
+Power : ${_powerCtrl.text.trim()}kw
+CEB P. F : ${_cebPfCtrl.text.trim()}
+
+G1 Meter Reading: ${newCumG1.toStringAsFixed(2)}Mwh
+Gen f : ${_genF1Ctrl.text.trim()}
+G2 meter Reading : ${newCumG2.toStringAsFixed(2)}Mwh
+Gen f : ${_genF2Ctrl.text.trim()}
+Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
+@Maduruoya#''';
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Daily Generation (9:00 AM)',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Sluice Power Generation Record • @Maduruoya#',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Edit Previous / Base Readings',
+            icon: Icon(
+              _editBaseValues ? Icons.check_circle : Icons.edit_note,
+              color: const Color(0xFFF59E0B),
+            ),
+            onPressed: () {
+              setState(() {
+                _editBaseValues = !_editBaseValues;
+              });
+            },
+          ),
+          IconButton(
+            tooltip: 'About App',
+            icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
+            onPressed: () => showCommonAboutDialog(context),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. YESTERDAY / PREVIOUS BASE READINGS CARD
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _editBaseValues
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFF334155),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'PREVIOUS / YESTERDAY READINGS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _editBaseValues = !_editBaseValues;
+                          });
+                        },
+                        child: Text(
+                          _editBaseValues ? 'Done' : 'Edit Base',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (_editBaseValues) ...[
+                    const Text(
+                      'Set yesterday 9:00 AM panel meter readings & cumulative totals:',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildLabeledInput(
+                            'Yesterday Panel G1',
+                            _prevPanelG1Ctrl,
+                            hint: 'e.g. 5420.10',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildLabeledInput(
+                            'Yesterday Panel G2',
+                            _prevPanelG2Ctrl,
+                            hint: 'e.g. 4810.25',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildLabeledInput(
+                            'Prev Cum. G1 (Mwh)',
+                            _prevCumG1Ctrl,
+                            hint: '122292.19',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildLabeledInput(
+                            'Prev Cum. G2 (Mwh)',
+                            _prevCumG2Ctrl,
+                            hint: '107490.64',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Yesterday Panel G1: ${prevPanelG1.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFFCBD5E1)),
+                        ),
+                        Text(
+                          'G2: ${prevPanelG2.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFFCBD5E1)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Prev Cum. G1: ${prevCumG1.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF94A3B8)),
+                        ),
+                        Text(
+                          'Cum. G2: ${prevCumG2.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. TODAY 9:00 AM PANEL METER INPUTS
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF38BDF8), width: 1.3),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TODAY 9:00 AM PANEL METER READINGS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Today Panel G1',
+                          _todayPanelG1Ctrl,
+                          hint: '9:00 AM G1',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Today Panel G2',
+                          _todayPanelG2Ctrl,
+                          hint: '9:00 AM G2',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'G1 Daily: ${dailyG1.toStringAsFixed(2)} Mwh',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: dailyG1 < 0
+                              ? const Color(0xFFF87171)
+                              : const Color(0xFF10B981),
+                        ),
+                      ),
+                      Text(
+                        'G2 Daily: ${dailyG2.toStringAsFixed(2)} Mwh',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: dailyG2 < 0
+                              ? const Color(0xFFF87171)
+                              : const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasNegativeDiff) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Warning: Today reading is smaller than yesterday reading!',
+                      style:
+                          TextStyle(fontSize: 12, color: Color(0xFFF87171)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 3. AUTO-CALCULATED SUMMARY CARD
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'TOTLE READING (DAILY GENERATION)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF6EE7B7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        totalDailyGen.toStringAsFixed(2),
+                        style: const TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Mwh',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFF047857), height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'New G1 Cumulative:',
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFFA7F3D0)),
+                      ),
+                      Text(
+                        '${newCumG1.toStringAsFixed(2)} Mwh',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'New G2 Cumulative:',
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFFA7F3D0)),
+                      ),
+                      Text(
+                        '${newCumG2.toStringAsFixed(2)} Mwh',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 4. OTHER REPORT FIELDS (USER FILLS THESE)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'PLANT & DISCHARGE DETAILS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Date',
+                          _dateCtrl,
+                          keyboardType: TextInputType.datetime,
+                          hint: '2026/11/24',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Reservoir Water Level',
+                          _resLevelCtrl,
+                          hint: '89.25',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Water Discharge',
+                          _waterDisCtrl,
+                          hint: '29',
+                          suffix: 'm3/s',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Mahaweli Discharge',
+                          _mahaweliDisCtrl,
+                          hint: '00',
+                          suffix: 'm3/s',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Power',
+                          _powerCtrl,
+                          hint: '2400',
+                          suffix: 'kw',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'CEB P. F',
+                          _cebPfCtrl,
+                          keyboardType: TextInputType.text,
+                          hint: '10 minutes',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'G1 Gen f',
+                          _genF1Ctrl,
+                          keyboardType: TextInputType.text,
+                          hint: '00',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'G2 Gen f',
+                          _genF2Ctrl,
+                          keyboardType: TextInputType.text,
+                          hint: '00',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 5. LIVE WHATSAPP MESSAGE PREVIEW
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF064E3B).withOpacity(0.35),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF10B981)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.chat, size: 16, color: Color(0xFF10B981)),
+                      SizedBox(width: 6),
+                      Text(
+                        'WHATSAPP MESSAGE PREVIEW',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFF6EE7B7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    formattedMessage,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      color: Colors.white,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 6. SAVE & COPY BUTTONS
+            ElevatedButton.icon(
+              onPressed: (todayPanelG1 == null || todayPanelG2 == null)
+                  ? null
+                  : () => _saveAndCopyReport(
+                        todayPanelG1: todayPanelG1,
+                        todayPanelG2: todayPanelG2,
+                        newCumG1: newCumG1,
+                        newCumG2: newCumG2,
+                        message: formattedMessage,
+                      ),
+              icon: const Icon(Icons.save_alt),
+              label: const Text(
+                'SAVE FOR TOMORROW & COPY MESSAGE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFF334155),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => _copyOnly(formattedMessage),
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Copy Message Only (Without Saving)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF38BDF8),
+                side: const BorderSide(color: Color(0xFF38BDF8)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
