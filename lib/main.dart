@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'turbine_data.dart';
+
+const String kFirebaseDbUrl =
+    'https://eagle-power-maduruoya-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 void main() {
   runApp(const HydroTurbineApp());
@@ -136,7 +141,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Hydro Operational Suite • ZZ1540',
+                  'Hydro Operational Suite • Cloud Sync',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF94A3B8),
@@ -429,7 +434,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 1.4.2',
+                'Version 2.0.0 • Cloud Sync',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -455,7 +460,7 @@ void showCommonAboutDialog(BuildContext context) {
               '• Net Head (H): Water Level - 78.64 m\n'
               '• Output Power: H × Cum × EF × 9.81 kW\n'
               '• CEB Load Reduction Calculator\n'
-              '• Daily 9:00 AM Generation Report (@Maduruoya#)',
+              '• Live Cloud Sync & History (@Maduruoya#)',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFFCBD5E1),
@@ -502,13 +507,11 @@ class TurbineCalculatorTab extends StatefulWidget {
 }
 
 class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
-  // Controllers start empty so saved values appear as dim hint text!
   final TextEditingController _waterLevelController = TextEditingController();
   final TextEditingController _outflowController = TextEditingController();
   final TextEditingController _currentGenController = TextEditingController();
   final TextEditingController _reductionPctController = TextEditingController();
 
-  // Saved / fallback values displayed in dim hint style
   String _savedWaterLevel = '89.25';
   String _savedOutflow = '29.0';
   String _savedCurrentGen = '2300';
@@ -661,7 +664,6 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Use typed value if present, otherwise fallback to saved dim value
     final String activeWaterStr = _waterLevelController.text.trim().isNotEmpty
         ? _waterLevelController.text.trim()
         : _savedWaterLevel;
@@ -1362,7 +1364,7 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
 }
 
 // ============================================================================
-// TAB 2: DAILY GENERATION REPORT (9:00 AM RECORD)
+// TAB 2: DAILY GENERATION REPORT (9:00 AM RECORD) WITH LIVE CLOUD SYNC
 // ============================================================================
 class DailyGenerationTab extends StatefulWidget {
   const DailyGenerationTab({super.key});
@@ -1382,7 +1384,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _prevCumG1Ctrl = TextEditingController();
   final TextEditingController _prevCumG2Ctrl = TextEditingController();
 
-  // Plant & Event Details for WhatsApp Report (Controllers start empty so saved values show dim)
+  // Plant & Event Details for WhatsApp Report
   final TextEditingController _dateCtrl = TextEditingController();
   final TextEditingController _resLevelCtrl = TextEditingController();
   final TextEditingController _waterDisCtrl = TextEditingController();
@@ -1413,12 +1415,16 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   String _savedGenF2 = '00';
 
   bool _isLoaded = false;
+  bool _isSyncing = false;
+  String _cloudStatus = 'Connecting...';
+  String _lastSyncedDate = '';
+  bool _isCloudConnected = false;
 
   @override
   void initState() {
     super.initState();
     _syncDateToToday();
-    _loadSavedReadings();
+    _initializeData();
 
     for (final c in [
       _prevPanelG1Ctrl,
@@ -1456,8 +1462,14 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadSavedReadings() async {
+  Future<void> _initializeData() async {
+    await _loadLocalSavedReadings();
+    await _syncFromCloud(showToast: false);
+  }
+
+  Future<void> _loadLocalSavedReadings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _savedPrevPanelG1 = prefs.getString('dg_prev_panel_g1') ?? '';
       _savedPrevPanelG2 = prefs.getString('dg_prev_panel_g2') ?? '';
@@ -1471,26 +1483,346 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _savedCebPf = prefs.getString('dg_ceb_pf') ?? '00';
       _savedGenF1 = prefs.getString('dg_gen_f1') ?? '00';
       _savedGenF2 = prefs.getString('dg_gen_f2') ?? '00';
-
-      // Clear text controllers so saved values appear cleanly in dim hint style
-      _prevPanelG1Ctrl.clear();
-      _prevPanelG2Ctrl.clear();
-      _prevCumG1Ctrl.clear();
-      _prevCumG2Ctrl.clear();
-      _resLevelCtrl.clear();
-      _waterDisCtrl.clear();
-      _mahaweliDisCtrl.clear();
-      _powerCtrl.clear();
-      _cebPfCtrl.clear();
-      _genStopMinCtrl.clear();
-      _powerDropKwCtrl.clear();
-      _powerDropMinCtrl.clear();
-      _genF1Ctrl.clear();
-      _genF2Ctrl.clear();
+      _lastSyncedDate = prefs.getString('dg_last_sync_date') ?? '';
 
       _syncDateToToday();
       _isLoaded = true;
     });
+  }
+
+  Future<void> _syncFromCloud({bool showToast = true}) async {
+    if (_isSyncing) return;
+    setState(() {
+      _isSyncing = true;
+      _cloudStatus = 'Syncing with Cloud...';
+    });
+
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/latest.json');
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded != null && decoded is Map<String, dynamic>) {
+          final prefs = await SharedPreferences.getInstance();
+
+          final String cPanelG1 =
+              (decoded['prev_panel_g1'] ?? _savedPrevPanelG1).toString();
+          final String cPanelG2 =
+              (decoded['prev_panel_g2'] ?? _savedPrevPanelG2).toString();
+          final String cCumG1 =
+              (decoded['prev_cum_g1'] ?? _savedPrevCumG1).toString();
+          final String cCumG2 =
+              (decoded['prev_cum_g2'] ?? _savedPrevCumG2).toString();
+
+          final String cRes =
+              (decoded['res_level'] ?? _savedResLevel).toString();
+          final String cWater =
+              (decoded['water_dis'] ?? _savedWaterDis).toString();
+          final String cMahaweli =
+              (decoded['mahaweli_dis'] ?? _savedMahaweliDis).toString();
+          final String cPower = (decoded['power'] ?? _savedPower).toString();
+          final String cCebPf = (decoded['ceb_pf'] ?? _savedCebPf).toString();
+          final String cGenF1 = (decoded['gen_f1'] ?? _savedGenF1).toString();
+          final String cGenF2 = (decoded['gen_f2'] ?? _savedGenF2).toString();
+          final String cDate = (decoded['updated_date'] ?? '').toString();
+
+          await prefs.setString('dg_prev_panel_g1', cPanelG1);
+          await prefs.setString('dg_prev_panel_g2', cPanelG2);
+          await prefs.setString('dg_prev_cum_g1', cCumG1);
+          await prefs.setString('dg_prev_cum_g2', cCumG2);
+          await prefs.setString('dg_res_level', cRes);
+          await prefs.setString('dg_water_dis', cWater);
+          await prefs.setString('dg_mahaweli_dis', cMahaweli);
+          await prefs.setString('dg_power', cPower);
+          await prefs.setString('dg_ceb_pf', cCebPf);
+          await prefs.setString('dg_gen_f1', cGenF1);
+          await prefs.setString('dg_gen_f2', cGenF2);
+          if (cDate.isNotEmpty) {
+            await prefs.setString('dg_last_sync_date', cDate);
+          }
+
+          if (mounted) {
+            setState(() {
+              _savedPrevPanelG1 = cPanelG1;
+              _savedPrevPanelG2 = cPanelG2;
+              _savedPrevCumG1 = cCumG1;
+              _savedPrevCumG2 = cCumG2;
+              _savedResLevel = cRes;
+              _savedWaterDis = cWater;
+              _savedMahaweliDis = cMahaweli;
+              _savedPower = cPower;
+              _savedCebPf = cCebPf;
+              _savedGenF1 = cGenF1;
+              _savedGenF2 = cGenF2;
+              _lastSyncedDate = cDate;
+              _isCloudConnected = true;
+              _cloudStatus = cDate.isNotEmpty
+                  ? 'Cloud Synced (Last: $cDate)'
+                  : 'Cloud Connected';
+            });
+
+            if (showToast) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Latest readings synced from Cloud!'),
+                  backgroundColor: Color(0xFF10B981),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        } else {
+          // Database is empty yet (first time)
+          if (mounted) {
+            setState(() {
+              _isCloudConnected = true;
+              _cloudStatus = 'Cloud Ready (No previous cloud save yet)';
+            });
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isCloudConnected = false;
+            _cloudStatus = 'Offline Mode (Cloud error ${response.statusCode})';
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isCloudConnected = false;
+          _cloudStatus = 'Offline Mode (Using local phone values)';
+        });
+        if (showToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No internet connection. Using local saved values.'),
+              backgroundColor: Color(0xFFF59E0B),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+  }
+
+  Future<bool> _pushToCloud({
+    required String dateStr,
+    required String prevPanelG1,
+    required String prevPanelG2,
+    required String prevCumG1,
+    required String prevCumG2,
+    required String resLevel,
+    required String waterDis,
+    required String mahaweliDis,
+    required String powerVal,
+    required String cebPf,
+    required String genStopMin,
+    required String powerDropKw,
+    required String powerDropMin,
+    required String genF1,
+    required String genF2,
+    required double dailyG1,
+    required double dailyG2,
+    required double totalDailyGen,
+    required String fullMessage,
+  }) async {
+    try {
+      final Map<String, dynamic> latestPayload = {
+        'updated_date': dateStr,
+        'updated_timestamp': DateTime.now().toIso8601String(),
+        'prev_panel_g1': prevPanelG1,
+        'prev_panel_g2': prevPanelG2,
+        'prev_cum_g1': prevCumG1,
+        'prev_cum_g2': prevCumG2,
+        'res_level': resLevel,
+        'water_dis': waterDis,
+        'mahaweli_dis': mahaweliDis,
+        'power': powerVal,
+        'ceb_pf': cebPf,
+        'gen_f1': genF1,
+        'gen_f2': genF2,
+      };
+
+      final latestUri = Uri.parse('$kFirebaseDbUrl/maduruoya/latest.json');
+      final resLatest = await http
+          .put(
+            latestUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(latestPayload),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      // Also save a history record by date (YYYY-MM-DD)
+      final String safeDateKey = dateStr.replaceAll('/', '-');
+      final Map<String, dynamic> historyPayload = {
+        ...latestPayload,
+        'daily_g1': dailyG1.toStringAsFixed(2),
+        'daily_g2': dailyG2.toStringAsFixed(2),
+        'total_daily_gen': totalDailyGen.toStringAsFixed(2),
+        'gen_stop_min': genStopMin,
+        'power_drop_kw': powerDropKw,
+        'power_drop_min': powerDropMin,
+        'whatsapp_message': fullMessage,
+      };
+
+      final historyUri =
+          Uri.parse('$kFirebaseDbUrl/maduruoya/history/$safeDateKey.json');
+      await http
+          .put(
+            historyUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(historyPayload),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (resLatest.statusCode == 200) {
+        if (mounted) {
+          setState(() {
+            _isCloudConnected = true;
+            _lastSyncedDate = dateStr;
+            _cloudStatus = 'Cloud Synced (Last: $dateStr)';
+          });
+        }
+        return true;
+      }
+      return false;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isCloudConnected = false;
+          _cloudStatus = 'Saved Locally (Will sync when online)';
+        });
+      }
+      return false;
+    }
+  }
+
+  Future<void> _showCloudHistoryDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/history.json');
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+
+      if (mounted) Navigator.pop(context); // close loader
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded == null || decoded is! Map<String, dynamic>) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No history records in Cloud yet.'),
+              ),
+            );
+          }
+          return;
+        }
+
+        final List<String> sortedKeys = decoded.keys.toList()
+          ..sort((a, b) => b.compareTo(a)); // newest first
+
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                Icon(Icons.history, color: Color(0xFF38BDF8)),
+                SizedBox(width: 8),
+                Text('Cloud Report History', style: TextStyle(fontSize: 17)),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: ListView.separated(
+                itemCount: sortedKeys.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(color: Color(0xFF334155)),
+                itemBuilder: (context, index) {
+                  final key = sortedKeys[index];
+                  final item = decoded[key] as Map<String, dynamic>;
+                  final dateLabel = (item['updated_date'] ?? key).toString();
+                  final tot = (item['total_daily_gen'] ?? '0.00').toString();
+                  final g1 = (item['prev_cum_g1'] ?? '--').toString();
+                  final g2 = (item['prev_cum_g2'] ?? '--').toString();
+                  final msg = (item['whatsapp_message'] ?? '').toString();
+
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      '$dateLabel  •  Total: $tot Mwh',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    subtitle: Text(
+                      'G1: $g1 Mwh  |  G2: $g2 Mwh',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFFCBD5E1)),
+                    ),
+                    trailing: msg.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Copy this report',
+                            icon: const Icon(Icons.copy,
+                                size: 18, color: Color(0xFF38BDF8)),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: msg));
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('Copied report for $dateLabel!'),
+                                    backgroundColor: const Color(0xFF38BDF8),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not load history. Check internet connection.'),
+            backgroundColor: Color(0xFFF87171),
+          ),
+        );
+      }
+    }
   }
 
   String _valOrSaved(TextEditingController ctrl, String savedFallback) {
@@ -1557,6 +1889,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   Future<void> _saveAndCopyReport({
     required double? todayPanelG1,
     required double? todayPanelG2,
+    required double dailyG1,
+    required double dailyG2,
     required double newCumG1,
     required double newCumG2,
     required double totalDailyGen,
@@ -1592,6 +1926,10 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final String newGenF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
     final String newGenF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
 
+    final String genStopMin = _genStopMinCtrl.text.trim();
+    final String powerDropKw = _powerDropKwCtrl.text.trim();
+    final String powerDropMin = _powerDropMinCtrl.text.trim();
+
     await prefs.setString('dg_prev_panel_g1', newSavedPanelG1);
     await prefs.setString('dg_prev_panel_g2', newSavedPanelG2);
     await prefs.setString('dg_prev_cum_g1', newSavedCumG1);
@@ -1604,6 +1942,30 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     await prefs.setString('dg_ceb_pf', newCebPf);
     await prefs.setString('dg_gen_f1', newGenF1);
     await prefs.setString('dg_gen_f2', newGenF2);
+    await prefs.setString('dg_last_sync_date', todayDate);
+
+    // Push to Firebase Cloud Database so all operators get updated values
+    final bool cloudOk = await _pushToCloud(
+      dateStr: todayDate,
+      prevPanelG1: newSavedPanelG1,
+      prevPanelG2: newSavedPanelG2,
+      prevCumG1: newSavedCumG1,
+      prevCumG2: newSavedCumG2,
+      resLevel: newRes,
+      waterDis: newWater,
+      mahaweliDis: newMahaweli,
+      powerVal: newPower,
+      cebPf: newCebPf,
+      genStopMin: genStopMin,
+      powerDropKw: powerDropKw,
+      powerDropMin: powerDropMin,
+      genF1: newGenF1,
+      genF2: newGenF2,
+      dailyG1: dailyG1,
+      dailyG2: dailyG2,
+      totalDailyGen: totalDailyGen,
+      fullMessage: message,
+    );
 
     setState(() {
       _savedPrevPanelG1 = newSavedPanelG1;
@@ -1619,7 +1981,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _savedGenF1 = newGenF1;
       _savedGenF2 = newGenF2;
 
-      // Clear active inputs so newly saved values appear in dim hint color
       _prevPanelG1Ctrl.clear();
       _prevPanelG2Ctrl.clear();
       _todayPanelG1Ctrl.clear();
@@ -1643,8 +2004,12 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Saved & Copied ($todayDate)! Ready to paste in WhatsApp.'),
-          backgroundColor: const Color(0xFF10B981),
+            cloudOk
+                ? 'Saved to Cloud & Copied ($todayDate)! Synced for all shifts.'
+                : 'Saved Locally & Copied ($todayDate)! (Offline mode)',
+          ),
+          backgroundColor:
+              cloudOk ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
           duration: const Duration(seconds: 4),
         ),
       );
@@ -1759,7 +2124,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       );
     }
 
-    // 1. Panel Readings (Yesterday 9 AM vs Today 9 AM)
     final double prevPanelG1 =
         double.tryParse(_valOrSaved(_prevPanelG1Ctrl, _savedPrevPanelG1)) ??
             0.0;
@@ -1771,23 +2135,18 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final double? todayPanelG2 =
         double.tryParse(_todayPanelG2Ctrl.text.trim());
 
-    // Daily difference = Today Panel Reading - Yesterday Panel Reading
     final double dailyG1 =
         (todayPanelG1 != null) ? (todayPanelG1 - prevPanelG1) : 0.0;
     final double dailyG2 =
         (todayPanelG2 != null) ? (todayPanelG2 - prevPanelG2) : 0.0;
 
-    // 2. Previous Cumulative Totals (G1 & G2)
     final double prevCumG1 =
         double.tryParse(_valOrSaved(_prevCumG1Ctrl, _savedPrevCumG1)) ?? 0.0;
     final double prevCumG2 =
         double.tryParse(_valOrSaved(_prevCumG2Ctrl, _savedPrevCumG2)) ?? 0.0;
 
-    // 3. New Cumulative G1 & G2 = Previous Cumulative + Daily Gen
     final double newCumG1 = prevCumG1 + dailyG1;
     final double newCumG2 = prevCumG2 + dailyG2;
-
-    // Totle Reading = Today G1 Daily + Today G2 Daily
     final double totalDailyGen = dailyG1 + dailyG2;
 
     final bool hasNegativeDiff =
@@ -1812,30 +2171,34 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Sluice Power Generation Record • @Maduruoya#',
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              'Cloud Sync Enabled • @Maduruoya#',
+              style: TextStyle(fontSize: 11, color: Color(0xFF10B981)),
             ),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Sync Today Date',
-            icon: const Icon(Icons.today, color: Color(0xFF10B981)),
-            onPressed: () {
-              setState(() {
-                _syncDateToToday();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Date updated to ${_dateCtrl.text}'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
+            tooltip: 'Sync from Cloud Now',
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  )
+                : const Icon(Icons.cloud_sync, color: Color(0xFF38BDF8)),
+            onPressed: _isSyncing ? null : () => _syncFromCloud(showToast: true),
+          ),
+          IconButton(
+            tooltip: 'Cloud History',
+            icon: const Icon(Icons.history, color: Color(0xFFF59E0B)),
+            onPressed: _showCloudHistoryDialog,
           ),
           IconButton(
             tooltip: 'About App',
-            icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
+            icon: const Icon(Icons.info_outline, color: Color(0xFF94A3B8)),
             onPressed: () => showCommonAboutDialog(context),
           ),
         ],
@@ -1845,6 +2208,61 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // CLOUD STATUS BANNER
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _isCloudConnected
+                    ? const Color(0xFF064E3B).withOpacity(0.45)
+                    : const Color(0xFF78350F).withOpacity(0.35),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isCloudConnected
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isCloudConnected ? Icons.cloud_done : Icons.cloud_off,
+                    size: 18,
+                    color: _isCloudConnected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _cloudStatus,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _isCloudConnected
+                            ? const Color(0xFFA7F3D0)
+                            : const Color(0xFFFDE68A),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _isSyncing
+                        ? null
+                        : () => _syncFromCloud(showToast: true),
+                    child: const Text(
+                      'Refresh',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF38BDF8),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // ================================================================
             // KOTUWU 1: PANEL METER READINGS (4 READINGS)
             // ================================================================
@@ -2265,7 +2683,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Generator Stop (Auto appends 'minutes')
                   _buildDimSavedInput(
                     'Generator stop (Optional - Number only)',
                     _genStopMinCtrl,
@@ -2277,7 +2694,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Power Drop (Separate kW & minutes fields, auto appends 'kw' & 'minutes')
                   const Text(
                     'Power drop (Optional - Auto adds kw & minutes)',
                     style: TextStyle(
@@ -2413,7 +2829,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             const SizedBox(height: 16),
 
             // ================================================================
-            // KOTUWU 6: SAVE & COPY BUTTONS
+            // KOTUWU 6: SAVE TO CLOUD & COPY BUTTONS
             // ================================================================
             ElevatedButton.icon(
               onPressed: (todayPanelG1 == null || todayPanelG2 == null)
@@ -2421,13 +2837,15 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   : () => _saveAndCopyReport(
                         todayPanelG1: todayPanelG1,
                         todayPanelG2: todayPanelG2,
+                        dailyG1: dailyG1,
+                        dailyG2: dailyG2,
                         newCumG1: newCumG1,
                         newCumG2: newCumG2,
                         totalDailyGen: totalDailyGen,
                       ),
-              icon: const Icon(Icons.save_alt),
+              icon: const Icon(Icons.cloud_upload),
               label: const Text(
-                'SAVE FOR TOMORROW & COPY MESSAGE',
+                'SAVE TO CLOUD & COPY MESSAGE',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
