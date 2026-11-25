@@ -429,7 +429,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 1.3.0',
+                'Version 1.4.0',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1286,24 +1286,26 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _todayPanelG1Ctrl = TextEditingController();
   final TextEditingController _todayPanelG2Ctrl = TextEditingController();
 
-  // KOTUWA 2: Mechchara Dawasak Duwapu Samastha Agaya (Previous Cumulative G1 & G2)
+  // KOTUWA 2: Previous Cumulative Totals (G1 & G2)
   final TextEditingController _prevCumG1Ctrl =
-      TextEditingController(text: '122262.42');
+      TextEditingController(text: '122314.38');
   final TextEditingController _prevCumG2Ctrl =
-      TextEditingController(text: '107462.73');
+      TextEditingController(text: '107510.91');
 
-  // Plant Details for WhatsApp Report
+  // Plant & Event Details for WhatsApp Report
   final TextEditingController _dateCtrl = TextEditingController();
   final TextEditingController _resLevelCtrl =
-      TextEditingController(text: '89.25');
+      TextEditingController(text: '89.24');
   final TextEditingController _waterDisCtrl =
-      TextEditingController(text: '29');
+      TextEditingController(text: '26');
   final TextEditingController _mahaweliDisCtrl =
       TextEditingController(text: '00');
   final TextEditingController _powerCtrl =
-      TextEditingController(text: '2400');
+      TextEditingController(text: '2300');
   final TextEditingController _cebPfCtrl =
-      TextEditingController(text: '10 minutes');
+      TextEditingController(text: '00');
+  final TextEditingController _genStopCtrl = TextEditingController();
+  final TextEditingController _powerDropCtrl = TextEditingController();
   final TextEditingController _genF1Ctrl = TextEditingController(text: '00');
   final TextEditingController _genF2Ctrl = TextEditingController(text: '00');
 
@@ -1312,10 +1314,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _dateCtrl.text =
-        '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-
+    _syncDateToToday();
     _loadSavedReadings();
 
     for (final c in [
@@ -1331,11 +1330,22 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _mahaweliDisCtrl,
       _powerCtrl,
       _cebPfCtrl,
+      _genStopCtrl,
+      _powerDropCtrl,
       _genF1Ctrl,
       _genF2Ctrl,
     ]) {
       c.addListener(_onFieldChanged);
     }
+  }
+
+  String _getTodayDateString() {
+    final now = DateTime.now();
+    return '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+  }
+
+  void _syncDateToToday() {
+    _dateCtrl.text = _getTodayDateString();
   }
 
   void _onFieldChanged() {
@@ -1347,19 +1357,61 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     setState(() {
       _prevPanelG1Ctrl.text = prefs.getString('dg_prev_panel_g1') ?? '';
       _prevPanelG2Ctrl.text = prefs.getString('dg_prev_panel_g2') ?? '';
-      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122262.42';
-      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107462.73';
+      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122314.38';
+      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107510.91';
 
-      _resLevelCtrl.text = prefs.getString('dg_res_level') ?? '89.25';
-      _waterDisCtrl.text = prefs.getString('dg_water_dis') ?? '29';
+      _resLevelCtrl.text = prefs.getString('dg_res_level') ?? '89.24';
+      _waterDisCtrl.text = prefs.getString('dg_water_dis') ?? '26';
       _mahaweliDisCtrl.text = prefs.getString('dg_mahaweli_dis') ?? '00';
-      _powerCtrl.text = prefs.getString('dg_power') ?? '2400';
-      _cebPfCtrl.text = prefs.getString('dg_ceb_pf') ?? '10 minutes';
+      _powerCtrl.text = prefs.getString('dg_power') ?? '2300';
+      _cebPfCtrl.text = prefs.getString('dg_ceb_pf') ?? '00';
+      _genStopCtrl.text = prefs.getString('dg_gen_stop') ?? '';
+      _powerDropCtrl.text = prefs.getString('dg_power_drop') ?? '';
       _genF1Ctrl.text = prefs.getString('dg_gen_f1') ?? '00';
       _genF2Ctrl.text = prefs.getString('dg_gen_f2') ?? '00';
 
+      _syncDateToToday();
       _isLoaded = true;
     });
+  }
+
+  String _buildWhatsAppMessage({
+    required double newCumG1,
+    required double newCumG2,
+    required double totalDailyGen,
+  }) {
+    final String genStopText = _genStopCtrl.text.trim();
+    final String powerDropText = _powerDropCtrl.text.trim();
+
+    final List<String> lines = [
+      'Sluice Power Generation Record.',
+      '',
+      'Date : ${_dateCtrl.text.trim()}',
+      'Reservoir Water Level : ${_resLevelCtrl.text.trim()}',
+      'Water Discharge : ${_waterDisCtrl.text.trim()}m3/s',
+      'Mahaweli Discharge :${_mahaweliDisCtrl.text.trim()}m3/s',
+      'Power : ${_powerCtrl.text.trim()}kw',
+      'CEB P. F : ${_cebPfCtrl.text.trim()}',
+    ];
+
+    if (genStopText.isNotEmpty) {
+      lines.add('Generator stop : $genStopText');
+    }
+    if (powerDropText.isNotEmpty) {
+      lines.add('Power drop $powerDropText');
+    }
+
+    lines.addAll([
+      '',
+      'G1 Meter Reading: ${newCumG1.toStringAsFixed(2)}Mwh',
+      'Gen f : ${_genF1Ctrl.text.trim()}',
+      'G2 meter Reading : ${newCumG2.toStringAsFixed(2)}Mwh',
+      'Gen f : ${_genF2Ctrl.text.trim()}',
+      'Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh',
+      '@Maduruoya#',
+    ]);
+
+    return lines.join('\n');
   }
 
   Future<void> _saveAndCopyReport({
@@ -1367,8 +1419,18 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     required double? todayPanelG2,
     required double newCumG1,
     required double newCumG2,
-    required String message,
+    required double totalDailyGen,
   }) async {
+    // Always ensure date matches current phone date before generating & copying
+    final String todayDate = _getTodayDateString();
+    _dateCtrl.text = todayDate;
+
+    final String message = _buildWhatsAppMessage(
+      newCumG1: newCumG1,
+      newCumG2: newCumG2,
+      totalDailyGen: totalDailyGen,
+    );
+
     await Clipboard.setData(ClipboardData(text: message));
 
     final prefs = await SharedPreferences.getInstance();
@@ -1392,6 +1454,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     await prefs.setString('dg_mahaweli_dis', _mahaweliDisCtrl.text.trim());
     await prefs.setString('dg_power', _powerCtrl.text.trim());
     await prefs.setString('dg_ceb_pf', _cebPfCtrl.text.trim());
+    await prefs.setString('dg_gen_stop', _genStopCtrl.text.trim());
+    await prefs.setString('dg_power_drop', _powerDropCtrl.text.trim());
     await prefs.setString('dg_gen_f1', _genF1Ctrl.text.trim());
     await prefs.setString('dg_gen_f2', _genF2Ctrl.text.trim());
 
@@ -1400,24 +1464,37 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              'Saved for tomorrow & Copied! Ready to paste in WhatsApp.'),
-          backgroundColor: Color(0xFF10B981),
-          duration: Duration(seconds: 4),
+              'Saved & Copied ($todayDate)! Ready to paste in WhatsApp.'),
+          backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
   }
 
-  Future<void> _copyOnly(String message) async {
+  Future<void> _copyOnly({
+    required double newCumG1,
+    required double newCumG2,
+    required double totalDailyGen,
+  }) async {
+    final String todayDate = _getTodayDateString();
+    _dateCtrl.text = todayDate;
+
+    final String message = _buildWhatsAppMessage(
+      newCumG1: newCumG1,
+      newCumG2: newCumG2,
+      totalDailyGen: totalDailyGen,
+    );
+
     await Clipboard.setData(ClipboardData(text: message));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('WhatsApp message copied to clipboard!'),
-          backgroundColor: Color(0xFF38BDF8),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text('WhatsApp message copied ($todayDate)!'),
+          backgroundColor: const Color(0xFF38BDF8),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -1437,6 +1514,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     _mahaweliDisCtrl.dispose();
     _powerCtrl.dispose();
     _cebPfCtrl.dispose();
+    _genStopCtrl.dispose();
+    _powerDropCtrl.dispose();
     _genF1Ctrl.dispose();
     _genF2Ctrl.dispose();
     super.dispose();
@@ -1466,9 +1545,14 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         TextField(
           controller: ctrl,
           keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.normal,
+              color: Color(0xFF64748B),
+            ),
             suffixText: suffix,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1502,13 +1586,13 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final double dailyG2 =
         (todayPanelG2 != null) ? (todayPanelG2 - prevPanelG2) : 0.0;
 
-    // 2. Mechchara dawasak duwapu samastha agaya (Previous Cumulative G1 & G2)
+    // 2. Previous Cumulative Totals (G1 & G2)
     final double prevCumG1 =
         double.tryParse(_prevCumG1Ctrl.text.trim()) ?? 0.0;
     final double prevCumG2 =
         double.tryParse(_prevCumG2Ctrl.text.trim()) ?? 0.0;
 
-    // 3. New Cumulative G1 & G2 = Samastha Agaya + Daily Gen
+    // 3. New Cumulative G1 & G2 = Previous Cumulative + Daily Gen
     final double newCumG1 = prevCumG1 + dailyG1;
     final double newCumG2 = prevCumG2 + dailyG2;
 
@@ -1519,21 +1603,11 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         (todayPanelG1 != null && dailyG1 < 0) ||
             (todayPanelG2 != null && dailyG2 < 0);
 
-    final String formattedMessage = '''Sluice Power Generation Record.
-
-Date : ${_dateCtrl.text.trim()}
-Reservoir Water Level : ${_resLevelCtrl.text.trim()}
-Water Discharge : ${_waterDisCtrl.text.trim()}m3/s
-Mahaweli Discharge :${_mahaweliDisCtrl.text.trim()}m3/s
-Power : ${_powerCtrl.text.trim()}kw
-CEB P. F : ${_cebPfCtrl.text.trim()}
-
-G1 Meter Reading: ${newCumG1.toStringAsFixed(2)}Mwh
-Gen f : ${_genF1Ctrl.text.trim()}
-G2 meter Reading : ${newCumG2.toStringAsFixed(2)}Mwh
-Gen f : ${_genF2Ctrl.text.trim()}
-Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
-@Maduruoya#''';
+    final String formattedMessage = _buildWhatsAppMessage(
+      newCumG1: newCumG1,
+      newCumG2: newCumG2,
+      totalDailyGen: totalDailyGen,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -1554,6 +1628,21 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
         ),
         actions: [
           IconButton(
+            tooltip: 'Sync Today Date',
+            icon: const Icon(Icons.today, color: Color(0xFF10B981)),
+            onPressed: () {
+              setState(() {
+                _syncDateToToday();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Date updated to ${_dateCtrl.text}'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+          IconButton(
             tooltip: 'About App',
             icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
             onPressed: () => showCommonAboutDialog(context),
@@ -1566,7 +1655,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ================================================================
-            // KOTUWU 1: PANEL METER READINGS (4 INPUTS: YESTERDAY & TODAY)
+            // KOTUWU 1: PANEL METER READINGS (4 READINGS)
             // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
@@ -1671,7 +1760,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             const SizedBox(height: 14),
 
             // ================================================================
-            // KOTUWU 2: MECHCHARA DAWASAK DUWAPU SAMASTHA AGAYA (PREV CUMULATIVE)
+            // KOTUWU 2: PREVIOUS CUMULATIVE TOTAL
             // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
@@ -1699,7 +1788,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         child: _buildLabeledInput(
                           'Prev Total G1 (Mwh)',
                           _prevCumG1Ctrl,
-                          hint: '122262.42',
+                          hint: '122314.38',
                           labelColor: const Color(0xFFFDE68A),
                         ),
                       ),
@@ -1708,7 +1797,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         child: _buildLabeledInput(
                           'Prev Total G2 (Mwh)',
                           _prevCumG2Ctrl,
-                          hint: '107462.73',
+                          hint: '107510.91',
                           labelColor: const Color(0xFFFDE68A),
                         ),
                       ),
@@ -1720,7 +1809,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             const SizedBox(height: 14),
 
             // ================================================================
-            // KOTUWU 3: EKATHUWA / FINAL CALCULATED TOTALS
+            // KOTUWU 3: FINAL TOTALS
             // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
@@ -1766,7 +1855,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${newCumG1.toStringAsFixed(2)}',
+                                newCumG1.toStringAsFixed(2),
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
@@ -1800,7 +1889,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${newCumG2.toStringAsFixed(2)}',
+                                newCumG2.toStringAsFixed(2),
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
@@ -1859,7 +1948,9 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             ),
             const SizedBox(height: 14),
 
-            // 4. OTHER REPORT FIELDS
+            // ================================================================
+            // KOTUWU 4: PLANT, DISCHARGE & OUTAGE DETAILS
+            // ================================================================
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1870,24 +1961,53 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '4. PLANT & DISCHARGE DETAILS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                      color: Color(0xFF38BDF8),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '4. PLANT & DISCHARGE DETAILS',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFF38BDF8),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _syncDateToToday();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF10B981)),
+                          ),
+                          child: const Text(
+                            'Today Date',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF10B981),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: _buildLabeledInput(
-                          'Date',
+                          'Date (Auto Phone Date)',
                           _dateCtrl,
                           keyboardType: TextInputType.datetime,
-                          hint: '2026/11/24',
+                          hint: '2026/11/25',
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1895,7 +2015,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         child: _buildLabeledInput(
                           'Reservoir Water Level',
                           _resLevelCtrl,
-                          hint: '89.25',
+                          hint: '89.24',
                         ),
                       ),
                     ],
@@ -1907,7 +2027,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         child: _buildLabeledInput(
                           'Water Discharge',
                           _waterDisCtrl,
-                          hint: '29',
+                          hint: '26',
                           suffix: 'm3/s',
                         ),
                       ),
@@ -1929,7 +2049,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         child: _buildLabeledInput(
                           'Power',
                           _powerCtrl,
-                          hint: '2400',
+                          hint: '2300',
                           suffix: 'kw',
                         ),
                       ),
@@ -1939,7 +2059,31 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                           'CEB P. F',
                           _cebPfCtrl,
                           keyboardType: TextInputType.text,
-                          hint: '10 minutes',
+                          hint: '30 minutes',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Generator stop (Optional)',
+                          _genStopCtrl,
+                          keyboardType: TextInputType.text,
+                          hint: 'e.g. 290 minutes',
+                          labelColor: const Color(0xFFFBBF24),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildLabeledInput(
+                          'Power drop (Optional)',
+                          _powerDropCtrl,
+                          keyboardType: TextInputType.text,
+                          hint: 'e.g. 1990kw 165minute',
+                          labelColor: const Color(0xFFFBBF24),
                         ),
                       ),
                     ],
@@ -1971,7 +2115,9 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             ),
             const SizedBox(height: 14),
 
-            // 5. LIVE WHATSAPP MESSAGE PREVIEW
+            // ================================================================
+            // KOTUWU 5: LIVE WHATSAPP MESSAGE PREVIEW
+            // ================================================================
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -2012,7 +2158,9 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             ),
             const SizedBox(height: 16),
 
-            // 6. SAVE & COPY BUTTONS
+            // ================================================================
+            // KOTUWU 6: SAVE & COPY BUTTONS
+            // ================================================================
             ElevatedButton.icon(
               onPressed: (todayPanelG1 == null || todayPanelG2 == null)
                   ? null
@@ -2021,7 +2169,7 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
                         todayPanelG2: todayPanelG2,
                         newCumG1: newCumG1,
                         newCumG2: newCumG2,
-                        message: formattedMessage,
+                        totalDailyGen: totalDailyGen,
                       ),
               icon: const Icon(Icons.save_alt),
               label: const Text(
@@ -2040,7 +2188,11 @@ Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: () => _copyOnly(formattedMessage),
+              onPressed: () => _copyOnly(
+                newCumG1: newCumG1,
+                newCumG2: newCumG2,
+                totalDailyGen: totalDailyGen,
+              ),
               icon: const Icon(Icons.copy, size: 18),
               label: const Text('Copy Message Only (Without Saving)'),
               style: OutlinedButton.styleFrom(
