@@ -1,0 +1,22 @@
+name: Generate Keystore Once
+on:
+  workflow_dispatch:
+
+jobs:
+  make-key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Generate JKS and Base64
+        run: |
+          keytool -genkey -v -keystore eagle-power.jks -keyalg RSA -keysize 2048 -validity 10000 -alias eaglepower -storepass EaglePower2026 -keypass EaglePower2026 -dname "CN=Aruna Ruwandipa, OU=Maduruoya Hydro, O=Eagle Power, L=Maduruoya, C=LK"
+          base64 -w 0 eagle-power.jks > keystore_base64.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Eagle-Power-Keystore-Files
+          path: |
+            eagle-power.jks
+            keystore_base64.txt
