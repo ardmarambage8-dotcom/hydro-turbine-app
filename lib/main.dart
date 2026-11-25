@@ -429,7 +429,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 1.4.0',
+                'Version 1.4.2',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -502,14 +502,17 @@ class TurbineCalculatorTab extends StatefulWidget {
 }
 
 class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
-  final TextEditingController _waterLevelController =
-      TextEditingController(text: '89.25');
-  final TextEditingController _outflowController =
-      TextEditingController(text: '29.0');
-  final TextEditingController _currentGenController =
-      TextEditingController(text: '2300');
-  final TextEditingController _reductionPctController =
-      TextEditingController(text: '25');
+  // Controllers start empty so saved values appear as dim hint text!
+  final TextEditingController _waterLevelController = TextEditingController();
+  final TextEditingController _outflowController = TextEditingController();
+  final TextEditingController _currentGenController = TextEditingController();
+  final TextEditingController _reductionPctController = TextEditingController();
+
+  // Saved / fallback values displayed in dim hint style
+  String _savedWaterLevel = '89.25';
+  String _savedOutflow = '29.0';
+  String _savedCurrentGen = '2300';
+  String _savedReductionPct = '25';
 
   int _runningUnits = 2;
   bool _useInterpolated = false;
@@ -519,13 +522,55 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
   @override
   void initState() {
     super.initState();
-    _waterLevelController.addListener(_recalculate);
-    _outflowController.addListener(_recalculate);
-    _currentGenController.addListener(_recalculate);
-    _reductionPctController.addListener(_recalculate);
+    _loadSavedCalcInputs();
+    _waterLevelController.addListener(_onCalcInputChanged);
+    _outflowController.addListener(_onCalcInputChanged);
+    _currentGenController.addListener(_onCalcInputChanged);
+    _reductionPctController.addListener(_onCalcInputChanged);
   }
 
-  void _recalculate() {
+  Future<void> _loadSavedCalcInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _savedWaterLevel = prefs.getString('calc_water_level') ?? '89.25';
+      _savedOutflow = prefs.getString('calc_outflow') ?? '29.0';
+      _savedCurrentGen = prefs.getString('calc_current_gen') ?? '2300';
+      _savedReductionPct = prefs.getString('calc_reduction_pct') ?? '25';
+      _runningUnits = prefs.getInt('calc_running_units') ?? 2;
+      _useInterpolated = prefs.getBool('calc_use_interp') ?? false;
+    });
+  }
+
+  Future<void> _saveCalcInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final wl = _waterLevelController.text.trim();
+    final ofl = _outflowController.text.trim();
+    final cg = _currentGenController.text.trim();
+    final rp = _reductionPctController.text.trim();
+
+    if (wl.isNotEmpty) {
+      _savedWaterLevel = wl;
+      await prefs.setString('calc_water_level', wl);
+    }
+    if (ofl.isNotEmpty) {
+      _savedOutflow = ofl;
+      await prefs.setString('calc_outflow', ofl);
+    }
+    if (cg.isNotEmpty) {
+      _savedCurrentGen = cg;
+      await prefs.setString('calc_current_gen', cg);
+    }
+    if (rp.isNotEmpty) {
+      _savedReductionPct = rp;
+      await prefs.setString('calc_reduction_pct', rp);
+    }
+    await prefs.setInt('calc_running_units', _runningUnits);
+    await prefs.setBool('calc_use_interp', _useInterpolated);
+  }
+
+  void _onCalcInputChanged() {
+    _saveCalcInputs();
     setState(() {});
   }
 
@@ -616,10 +661,16 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
 
   @override
   Widget build(BuildContext context) {
-    final double? waterLevel =
-        double.tryParse(_waterLevelController.text.trim());
-    final double? totalOutflow =
-        double.tryParse(_outflowController.text.trim());
+    // Use typed value if present, otherwise fallback to saved dim value
+    final String activeWaterStr = _waterLevelController.text.trim().isNotEmpty
+        ? _waterLevelController.text.trim()
+        : _savedWaterLevel;
+    final String activeOutflowStr = _outflowController.text.trim().isNotEmpty
+        ? _outflowController.text.trim()
+        : _savedOutflow;
+
+    final double? waterLevel = double.tryParse(activeWaterStr);
+    final double? totalOutflow = double.tryParse(activeOutflowStr);
 
     final double? netHead =
         waterLevel != null ? (waterLevel - _tailwaterOffset) : null;
@@ -669,10 +720,15 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
       }
     }
 
-    final double currentGenKw =
-        double.tryParse(_currentGenController.text.trim()) ?? 0.0;
-    final double reductionPct =
-        double.tryParse(_reductionPctController.text.trim()) ?? 0.0;
+    final String activeGenStr = _currentGenController.text.trim().isNotEmpty
+        ? _currentGenController.text.trim()
+        : _savedCurrentGen;
+    final String activeRedStr = _reductionPctController.text.trim().isNotEmpty
+        ? _reductionPctController.text.trim()
+        : _savedReductionPct;
+
+    final double currentGenKw = double.tryParse(activeGenStr) ?? 0.0;
+    final double reductionPct = double.tryParse(activeRedStr) ?? 0.0;
     final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
     final double targetGenKw =
         (currentGenKw - reducedAmountKw).clamp(0.0, double.infinity);
@@ -708,15 +764,20 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
           IconButton(
             tooltip: 'Reset Defaults',
             icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
-            onPressed: () {
-              _waterLevelController.text = '89.25';
-              _outflowController.text = '29.0';
-              _currentGenController.text = '2300';
-              _reductionPctController.text = '25';
+            onPressed: () async {
+              _waterLevelController.clear();
+              _outflowController.clear();
+              _currentGenController.clear();
+              _reductionPctController.clear();
               setState(() {
+                _savedWaterLevel = '89.25';
+                _savedOutflow = '29.0';
+                _savedCurrentGen = '2300';
+                _savedReductionPct = '25';
                 _runningUnits = 2;
                 _useInterpolated = false;
               });
+              await _saveCalcInputs();
             },
           ),
         ],
@@ -765,9 +826,17 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
                               style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                              decoration: const InputDecoration(
-                                hintText: 'e.g. 89.25',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _savedWaterLevel,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ),
                           ],
@@ -823,9 +892,17 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. 29.0',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _savedOutflow,
+                      hintStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
                       suffixText: 'Cum/s',
                     ),
                   ),
@@ -854,6 +931,7 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                           setState(() {
                             _runningUnits = newSelection.first;
                           });
+                          _saveCalcInputs();
                         },
                       ),
                     ],
@@ -1062,6 +1140,7 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                             setState(() {
                               _useInterpolated = v;
                             });
+                            _saveCalcInputs();
                           },
                         ),
                       ],
@@ -1140,9 +1219,17 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
                               style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                              decoration: const InputDecoration(
-                                hintText: 'e.g. 2300',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _savedCurrentGen,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
                                 suffixText: 'kW',
                               ),
                             ),
@@ -1171,8 +1258,13 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFFF59E0B),
                               ),
-                              decoration: const InputDecoration(
-                                hintText: '25',
+                              decoration: InputDecoration(
+                                hintText: _savedReductionPct,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
                                 suffixText: '%',
                               ),
                             ),
@@ -1287,27 +1379,38 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _todayPanelG2Ctrl = TextEditingController();
 
   // KOTUWA 2: Previous Cumulative Totals (G1 & G2)
-  final TextEditingController _prevCumG1Ctrl =
-      TextEditingController(text: '122314.38');
-  final TextEditingController _prevCumG2Ctrl =
-      TextEditingController(text: '107510.91');
+  final TextEditingController _prevCumG1Ctrl = TextEditingController();
+  final TextEditingController _prevCumG2Ctrl = TextEditingController();
 
-  // Plant & Event Details for WhatsApp Report
+  // Plant & Event Details for WhatsApp Report (Controllers start empty so saved values show dim)
   final TextEditingController _dateCtrl = TextEditingController();
-  final TextEditingController _resLevelCtrl =
-      TextEditingController(text: '89.24');
-  final TextEditingController _waterDisCtrl =
-      TextEditingController(text: '26');
-  final TextEditingController _mahaweliDisCtrl =
-      TextEditingController(text: '00');
-  final TextEditingController _powerCtrl =
-      TextEditingController(text: '2300');
-  final TextEditingController _cebPfCtrl =
-      TextEditingController(text: '00');
-  final TextEditingController _genStopCtrl = TextEditingController();
-  final TextEditingController _powerDropCtrl = TextEditingController();
-  final TextEditingController _genF1Ctrl = TextEditingController(text: '00');
-  final TextEditingController _genF2Ctrl = TextEditingController(text: '00');
+  final TextEditingController _resLevelCtrl = TextEditingController();
+  final TextEditingController _waterDisCtrl = TextEditingController();
+  final TextEditingController _mahaweliDisCtrl = TextEditingController();
+  final TextEditingController _powerCtrl = TextEditingController();
+  final TextEditingController _cebPfCtrl = TextEditingController();
+
+  // Separated numeric fields for Generator stop & Power drop
+  final TextEditingController _genStopMinCtrl = TextEditingController();
+  final TextEditingController _powerDropKwCtrl = TextEditingController();
+  final TextEditingController _powerDropMinCtrl = TextEditingController();
+
+  final TextEditingController _genF1Ctrl = TextEditingController();
+  final TextEditingController _genF2Ctrl = TextEditingController();
+
+  // Saved / fallback values displayed in dim hint style
+  String _savedPrevPanelG1 = '';
+  String _savedPrevPanelG2 = '';
+  String _savedPrevCumG1 = '122314.38';
+  String _savedPrevCumG2 = '107510.91';
+
+  String _savedResLevel = '89.24';
+  String _savedWaterDis = '26';
+  String _savedMahaweliDis = '00';
+  String _savedPower = '2300';
+  String _savedCebPf = '00';
+  String _savedGenF1 = '00';
+  String _savedGenF2 = '00';
 
   bool _isLoaded = false;
 
@@ -1330,8 +1433,9 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _mahaweliDisCtrl,
       _powerCtrl,
       _cebPfCtrl,
-      _genStopCtrl,
-      _powerDropCtrl,
+      _genStopMinCtrl,
+      _powerDropKwCtrl,
+      _powerDropMinCtrl,
       _genF1Ctrl,
       _genF2Ctrl,
     ]) {
@@ -1355,24 +1459,43 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   Future<void> _loadSavedReadings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _prevPanelG1Ctrl.text = prefs.getString('dg_prev_panel_g1') ?? '';
-      _prevPanelG2Ctrl.text = prefs.getString('dg_prev_panel_g2') ?? '';
-      _prevCumG1Ctrl.text = prefs.getString('dg_prev_cum_g1') ?? '122314.38';
-      _prevCumG2Ctrl.text = prefs.getString('dg_prev_cum_g2') ?? '107510.91';
+      _savedPrevPanelG1 = prefs.getString('dg_prev_panel_g1') ?? '';
+      _savedPrevPanelG2 = prefs.getString('dg_prev_panel_g2') ?? '';
+      _savedPrevCumG1 = prefs.getString('dg_prev_cum_g1') ?? '122314.38';
+      _savedPrevCumG2 = prefs.getString('dg_prev_cum_g2') ?? '107510.91';
 
-      _resLevelCtrl.text = prefs.getString('dg_res_level') ?? '89.24';
-      _waterDisCtrl.text = prefs.getString('dg_water_dis') ?? '26';
-      _mahaweliDisCtrl.text = prefs.getString('dg_mahaweli_dis') ?? '00';
-      _powerCtrl.text = prefs.getString('dg_power') ?? '2300';
-      _cebPfCtrl.text = prefs.getString('dg_ceb_pf') ?? '00';
-      _genStopCtrl.text = prefs.getString('dg_gen_stop') ?? '';
-      _powerDropCtrl.text = prefs.getString('dg_power_drop') ?? '';
-      _genF1Ctrl.text = prefs.getString('dg_gen_f1') ?? '00';
-      _genF2Ctrl.text = prefs.getString('dg_gen_f2') ?? '00';
+      _savedResLevel = prefs.getString('dg_res_level') ?? '89.24';
+      _savedWaterDis = prefs.getString('dg_water_dis') ?? '26';
+      _savedMahaweliDis = prefs.getString('dg_mahaweli_dis') ?? '00';
+      _savedPower = prefs.getString('dg_power') ?? '2300';
+      _savedCebPf = prefs.getString('dg_ceb_pf') ?? '00';
+      _savedGenF1 = prefs.getString('dg_gen_f1') ?? '00';
+      _savedGenF2 = prefs.getString('dg_gen_f2') ?? '00';
+
+      // Clear text controllers so saved values appear cleanly in dim hint style
+      _prevPanelG1Ctrl.clear();
+      _prevPanelG2Ctrl.clear();
+      _prevCumG1Ctrl.clear();
+      _prevCumG2Ctrl.clear();
+      _resLevelCtrl.clear();
+      _waterDisCtrl.clear();
+      _mahaweliDisCtrl.clear();
+      _powerCtrl.clear();
+      _cebPfCtrl.clear();
+      _genStopMinCtrl.clear();
+      _powerDropKwCtrl.clear();
+      _powerDropMinCtrl.clear();
+      _genF1Ctrl.clear();
+      _genF2Ctrl.clear();
 
       _syncDateToToday();
       _isLoaded = true;
     });
+  }
+
+  String _valOrSaved(TextEditingController ctrl, String savedFallback) {
+    final t = ctrl.text.trim();
+    return t.isNotEmpty ? t : savedFallback;
   }
 
   String _buildWhatsAppMessage({
@@ -1380,33 +1503,50 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     required double newCumG2,
     required double totalDailyGen,
   }) {
-    final String genStopText = _genStopCtrl.text.trim();
-    final String powerDropText = _powerDropCtrl.text.trim();
+    final String genStopMin = _genStopMinCtrl.text.trim();
+    final String powerDropKw = _powerDropKwCtrl.text.trim();
+    final String powerDropMin = _powerDropMinCtrl.text.trim();
+
+    final String resLevel = _valOrSaved(_resLevelCtrl, _savedResLevel);
+    final String waterDis = _valOrSaved(_waterDisCtrl, _savedWaterDis);
+    final String mahaweliDis = _valOrSaved(_mahaweliDisCtrl, _savedMahaweliDis);
+    final String powerVal = _valOrSaved(_powerCtrl, _savedPower);
+    final String cebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String genF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
+    final String genF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
 
     final List<String> lines = [
       'Sluice Power Generation Record.',
       '',
       'Date : ${_dateCtrl.text.trim()}',
-      'Reservoir Water Level : ${_resLevelCtrl.text.trim()}',
-      'Water Discharge : ${_waterDisCtrl.text.trim()}m3/s',
-      'Mahaweli Discharge :${_mahaweliDisCtrl.text.trim()}m3/s',
-      'Power : ${_powerCtrl.text.trim()}kw',
-      'CEB P. F : ${_cebPfCtrl.text.trim()}',
+      'Reservoir Water Level : $resLevel',
+      'Water Discharge : ${waterDis}m3/s',
+      'Mahaweli Discharge :${mahaweliDis}m3/s',
+      'Power : ${powerVal}kw',
+      'CEB P. F : $cebPf',
     ];
 
-    if (genStopText.isNotEmpty) {
-      lines.add('Generator stop : $genStopText');
+    if (genStopMin.isNotEmpty) {
+      lines.add('Generator stop : $genStopMin minutes');
     }
-    if (powerDropText.isNotEmpty) {
-      lines.add('Power drop $powerDropText');
+
+    if (powerDropKw.isNotEmpty || powerDropMin.isNotEmpty) {
+      final List<String> dropParts = ['Power drop'];
+      if (powerDropKw.isNotEmpty) {
+        dropParts.add('${powerDropKw}kw');
+      }
+      if (powerDropMin.isNotEmpty) {
+        dropParts.add('${powerDropMin}minutes');
+      }
+      lines.add(dropParts.join(' '));
     }
 
     lines.addAll([
       '',
       'G1 Meter Reading: ${newCumG1.toStringAsFixed(2)}Mwh',
-      'Gen f : ${_genF1Ctrl.text.trim()}',
+      'Gen f : $genF1',
       'G2 meter Reading : ${newCumG2.toStringAsFixed(2)}Mwh',
-      'Gen f : ${_genF2Ctrl.text.trim()}',
+      'Gen f : $genF2',
       'Totle Reading : ${totalDailyGen.toStringAsFixed(2)}Mwh',
       '@Maduruoya#',
     ]);
@@ -1421,7 +1561,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     required double newCumG2,
     required double totalDailyGen,
   }) async {
-    // Always ensure date matches current phone date before generating & copying
     final String todayDate = _getTodayDateString();
     _dateCtrl.text = todayDate;
 
@@ -1434,33 +1573,71 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     await Clipboard.setData(ClipboardData(text: message));
 
     final prefs = await SharedPreferences.getInstance();
-    if (todayPanelG1 != null) {
-      await prefs.setString(
-          'dg_prev_panel_g1', todayPanelG1.toStringAsFixed(2));
-      _prevPanelG1Ctrl.text = todayPanelG1.toStringAsFixed(2);
-    }
-    if (todayPanelG2 != null) {
-      await prefs.setString(
-          'dg_prev_panel_g2', todayPanelG2.toStringAsFixed(2));
-      _prevPanelG2Ctrl.text = todayPanelG2.toStringAsFixed(2);
-    }
-    await prefs.setString('dg_prev_cum_g1', newCumG1.toStringAsFixed(2));
-    await prefs.setString('dg_prev_cum_g2', newCumG2.toStringAsFixed(2));
-    _prevCumG1Ctrl.text = newCumG1.toStringAsFixed(2);
-    _prevCumG2Ctrl.text = newCumG2.toStringAsFixed(2);
 
-    await prefs.setString('dg_res_level', _resLevelCtrl.text.trim());
-    await prefs.setString('dg_water_dis', _waterDisCtrl.text.trim());
-    await prefs.setString('dg_mahaweli_dis', _mahaweliDisCtrl.text.trim());
-    await prefs.setString('dg_power', _powerCtrl.text.trim());
-    await prefs.setString('dg_ceb_pf', _cebPfCtrl.text.trim());
-    await prefs.setString('dg_gen_stop', _genStopCtrl.text.trim());
-    await prefs.setString('dg_power_drop', _powerDropCtrl.text.trim());
-    await prefs.setString('dg_gen_f1', _genF1Ctrl.text.trim());
-    await prefs.setString('dg_gen_f2', _genF2Ctrl.text.trim());
+    final String newSavedPanelG1 = todayPanelG1 != null
+        ? todayPanelG1.toStringAsFixed(2)
+        : _valOrSaved(_prevPanelG1Ctrl, _savedPrevPanelG1);
+    final String newSavedPanelG2 = todayPanelG2 != null
+        ? todayPanelG2.toStringAsFixed(2)
+        : _valOrSaved(_prevPanelG2Ctrl, _savedPrevPanelG2);
 
-    _todayPanelG1Ctrl.clear();
-    _todayPanelG2Ctrl.clear();
+    final String newSavedCumG1 = newCumG1.toStringAsFixed(2);
+    final String newSavedCumG2 = newCumG2.toStringAsFixed(2);
+
+    final String newRes = _valOrSaved(_resLevelCtrl, _savedResLevel);
+    final String newWater = _valOrSaved(_waterDisCtrl, _savedWaterDis);
+    final String newMahaweli = _valOrSaved(_mahaweliDisCtrl, _savedMahaweliDis);
+    final String newPower = _valOrSaved(_powerCtrl, _savedPower);
+    final String newCebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String newGenF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
+    final String newGenF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
+
+    await prefs.setString('dg_prev_panel_g1', newSavedPanelG1);
+    await prefs.setString('dg_prev_panel_g2', newSavedPanelG2);
+    await prefs.setString('dg_prev_cum_g1', newSavedCumG1);
+    await prefs.setString('dg_prev_cum_g2', newSavedCumG2);
+
+    await prefs.setString('dg_res_level', newRes);
+    await prefs.setString('dg_water_dis', newWater);
+    await prefs.setString('dg_mahaweli_dis', newMahaweli);
+    await prefs.setString('dg_power', newPower);
+    await prefs.setString('dg_ceb_pf', newCebPf);
+    await prefs.setString('dg_gen_f1', newGenF1);
+    await prefs.setString('dg_gen_f2', newGenF2);
+
+    setState(() {
+      _savedPrevPanelG1 = newSavedPanelG1;
+      _savedPrevPanelG2 = newSavedPanelG2;
+      _savedPrevCumG1 = newSavedCumG1;
+      _savedPrevCumG2 = newSavedCumG2;
+
+      _savedResLevel = newRes;
+      _savedWaterDis = newWater;
+      _savedMahaweliDis = newMahaweli;
+      _savedPower = newPower;
+      _savedCebPf = newCebPf;
+      _savedGenF1 = newGenF1;
+      _savedGenF2 = newGenF2;
+
+      // Clear active inputs so newly saved values appear in dim hint color
+      _prevPanelG1Ctrl.clear();
+      _prevPanelG2Ctrl.clear();
+      _todayPanelG1Ctrl.clear();
+      _todayPanelG2Ctrl.clear();
+      _prevCumG1Ctrl.clear();
+      _prevCumG2Ctrl.clear();
+
+      _resLevelCtrl.clear();
+      _waterDisCtrl.clear();
+      _mahaweliDisCtrl.clear();
+      _powerCtrl.clear();
+      _cebPfCtrl.clear();
+      _genStopMinCtrl.clear();
+      _powerDropKwCtrl.clear();
+      _powerDropMinCtrl.clear();
+      _genF1Ctrl.clear();
+      _genF2Ctrl.clear();
+    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1514,21 +1691,23 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     _mahaweliDisCtrl.dispose();
     _powerCtrl.dispose();
     _cebPfCtrl.dispose();
-    _genStopCtrl.dispose();
-    _powerDropCtrl.dispose();
+    _genStopMinCtrl.dispose();
+    _powerDropKwCtrl.dispose();
+    _powerDropMinCtrl.dispose();
     _genF1Ctrl.dispose();
     _genF2Ctrl.dispose();
     super.dispose();
   }
 
-  Widget _buildLabeledInput(
+  Widget _buildDimSavedInput(
     String label,
     TextEditingController ctrl, {
+    required String savedHint,
     TextInputType keyboardType =
         const TextInputType.numberWithOptions(decimal: true),
-    String? hint,
     String? suffix,
     Color? labelColor,
+    bool isSavedValueHint = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1545,15 +1724,25 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         TextField(
           controller: ctrl,
           keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
           decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.normal,
-              color: Color(0xFF64748B),
+            hintText: savedHint,
+            hintStyle: TextStyle(
+              fontSize: isSavedValueHint ? 15 : 13,
+              fontWeight:
+                  isSavedValueHint ? FontWeight.w600 : FontWeight.normal,
+              color: const Color(0xFF64748B),
             ),
             suffixText: suffix,
+            suffixStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF94A3B8),
+            ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
@@ -1572,9 +1761,11 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
 
     // 1. Panel Readings (Yesterday 9 AM vs Today 9 AM)
     final double prevPanelG1 =
-        double.tryParse(_prevPanelG1Ctrl.text.trim()) ?? 0.0;
+        double.tryParse(_valOrSaved(_prevPanelG1Ctrl, _savedPrevPanelG1)) ??
+            0.0;
     final double prevPanelG2 =
-        double.tryParse(_prevPanelG2Ctrl.text.trim()) ?? 0.0;
+        double.tryParse(_valOrSaved(_prevPanelG2Ctrl, _savedPrevPanelG2)) ??
+            0.0;
     final double? todayPanelG1 =
         double.tryParse(_todayPanelG1Ctrl.text.trim());
     final double? todayPanelG2 =
@@ -1588,9 +1779,9 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
 
     // 2. Previous Cumulative Totals (G1 & G2)
     final double prevCumG1 =
-        double.tryParse(_prevCumG1Ctrl.text.trim()) ?? 0.0;
+        double.tryParse(_valOrSaved(_prevCumG1Ctrl, _savedPrevCumG1)) ?? 0.0;
     final double prevCumG2 =
-        double.tryParse(_prevCumG2Ctrl.text.trim()) ?? 0.0;
+        double.tryParse(_valOrSaved(_prevCumG2Ctrl, _savedPrevCumG2)) ?? 0.0;
 
     // 3. New Cumulative G1 & G2 = Previous Cumulative + Daily Gen
     final double newCumG1 = prevCumG1 + dailyG1;
@@ -1680,19 +1871,25 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Yesterday Panel G1',
                           _prevPanelG1Ctrl,
-                          hint: 'e.g. 16736.67',
+                          savedHint: _savedPrevPanelG1.isNotEmpty
+                              ? _savedPrevPanelG1
+                              : 'e.g. 16736.67',
+                          isSavedValueHint: _savedPrevPanelG1.isNotEmpty,
                           labelColor: const Color(0xFFFBBF24),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Yesterday Panel G2',
                           _prevPanelG2Ctrl,
-                          hint: 'e.g. 14099.38',
+                          savedHint: _savedPrevPanelG2.isNotEmpty
+                              ? _savedPrevPanelG2
+                              : 'e.g. 14099.38',
+                          isSavedValueHint: _savedPrevPanelG2.isNotEmpty,
                           labelColor: const Color(0xFFFBBF24),
                         ),
                       ),
@@ -1702,19 +1899,21 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Today 9 AM Panel G1',
                           _todayPanelG1Ctrl,
-                          hint: 'e.g. 16766.44',
+                          savedHint: 'Enter 9 AM G1',
+                          isSavedValueHint: false,
                           labelColor: const Color(0xFF38BDF8),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Today 9 AM Panel G2',
                           _todayPanelG2Ctrl,
-                          hint: 'e.g. 14127.29',
+                          savedHint: 'Enter 9 AM G2',
+                          isSavedValueHint: false,
                           labelColor: const Color(0xFF38BDF8),
                         ),
                       ),
@@ -1785,19 +1984,19 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Prev Total G1 (Mwh)',
                           _prevCumG1Ctrl,
-                          hint: '122314.38',
+                          savedHint: _savedPrevCumG1,
                           labelColor: const Color(0xFFFDE68A),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Prev Total G2 (Mwh)',
                           _prevCumG2Ctrl,
-                          hint: '107510.91',
+                          savedHint: _savedPrevCumG2,
                           labelColor: const Color(0xFFFDE68A),
                         ),
                       ),
@@ -2003,19 +2202,19 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Date (Auto Phone Date)',
                           _dateCtrl,
+                          savedHint: _getTodayDateString(),
                           keyboardType: TextInputType.datetime,
-                          hint: '2026/11/25',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Reservoir Water Level',
                           _resLevelCtrl,
-                          hint: '89.24',
+                          savedHint: _savedResLevel,
                         ),
                       ),
                     ],
@@ -2024,19 +2223,19 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Water Discharge',
                           _waterDisCtrl,
-                          hint: '26',
+                          savedHint: _savedWaterDis,
                           suffix: 'm3/s',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Mahaweli Discharge',
                           _mahaweliDisCtrl,
-                          hint: '00',
+                          savedHint: _savedMahaweliDis,
                           suffix: 'm3/s',
                         ),
                       ),
@@ -2046,66 +2245,121 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'Power',
                           _powerCtrl,
-                          hint: '2300',
+                          savedHint: _savedPower,
                           suffix: 'kw',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'CEB P. F',
                           _cebPfCtrl,
+                          savedHint: _savedCebPf,
                           keyboardType: TextInputType.text,
-                          hint: '30 minutes',
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 14),
+
+                  // Generator Stop (Auto appends 'minutes')
+                  _buildDimSavedInput(
+                    'Generator stop (Optional - Number only)',
+                    _genStopMinCtrl,
+                    savedHint: 'e.g. 290',
+                    isSavedValueHint: false,
+                    keyboardType: TextInputType.number,
+                    suffix: 'minutes',
+                    labelColor: const Color(0xFFFBBF24),
+                  ),
                   const SizedBox(height: 12),
+
+                  // Power Drop (Separate kW & minutes fields, auto appends 'kw' & 'minutes')
+                  const Text(
+                    'Power drop (Optional - Auto adds kw & minutes)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFBBF24),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
-                          'Generator stop (Optional)',
-                          _genStopCtrl,
-                          keyboardType: TextInputType.text,
-                          hint: 'e.g. 290 minutes',
-                          labelColor: const Color(0xFFFBBF24),
+                        child: TextField(
+                          controller: _powerDropKwCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. 1990',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                              color: Color(0xFF64748B),
+                            ),
+                            suffixText: 'kw',
+                            suffixStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildLabeledInput(
-                          'Power drop (Optional)',
-                          _powerDropCtrl,
-                          keyboardType: TextInputType.text,
-                          hint: 'e.g. 1990kw 165minute',
-                          labelColor: const Color(0xFFFBBF24),
+                        child: TextField(
+                          controller: _powerDropMinCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. 165',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                              color: Color(0xFF64748B),
+                            ),
+                            suffixText: 'minutes',
+                            suffixStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
+
                   Row(
                     children: [
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'G1 Gen f',
                           _genF1Ctrl,
+                          savedHint: _savedGenF1,
                           keyboardType: TextInputType.text,
-                          hint: '00',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildLabeledInput(
+                        child: _buildDimSavedInput(
                           'G2 Gen f',
                           _genF2Ctrl,
+                          savedHint: _savedGenF2,
                           keyboardType: TextInputType.text,
-                          hint: '00',
                         ),
                       ),
                     ],
