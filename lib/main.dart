@@ -434,7 +434,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 2.0.0 • Cloud Sync',
+                'Version 2.0.1 • Cloud Sync',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1480,7 +1480,9 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _savedWaterDis = prefs.getString('dg_water_dis') ?? '26';
       _savedMahaweliDis = prefs.getString('dg_mahaweli_dis') ?? '00';
       _savedPower = prefs.getString('dg_power') ?? '2300';
-      _savedCebPf = prefs.getString('dg_ceb_pf') ?? '00';
+      _savedCebPf = (prefs.getString('dg_ceb_pf') ?? '00')
+          .replaceAll(RegExp(r'\s*minutes?\s*', caseSensitive: false), '')
+          .trim();
       _savedGenF1 = prefs.getString('dg_gen_f1') ?? '00';
       _savedGenF2 = prefs.getString('dg_gen_f2') ?? '00';
       _lastSyncedDate = prefs.getString('dg_last_sync_date') ?? '';
@@ -1522,7 +1524,10 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
           final String cMahaweli =
               (decoded['mahaweli_dis'] ?? _savedMahaweliDis).toString();
           final String cPower = (decoded['power'] ?? _savedPower).toString();
-          final String cCebPf = (decoded['ceb_pf'] ?? _savedCebPf).toString();
+          final String cCebPf = (decoded['ceb_pf'] ?? _savedCebPf)
+              .toString()
+              .replaceAll(RegExp(r'\s*minutes?\s*', caseSensitive: false), '')
+              .trim();
           final String cGenF1 = (decoded['gen_f1'] ?? _savedGenF1).toString();
           final String cGenF2 = (decoded['gen_f2'] ?? _savedGenF2).toString();
           final String cDate = (decoded['updated_date'] ?? '').toString();
@@ -1843,7 +1848,13 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final String waterDis = _valOrSaved(_waterDisCtrl, _savedWaterDis);
     final String mahaweliDis = _valOrSaved(_mahaweliDisCtrl, _savedMahaweliDis);
     final String powerVal = _valOrSaved(_powerCtrl, _savedPower);
-    final String cebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String rawCebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String cebPf = (rawCebPf.isNotEmpty &&
+            rawCebPf != '0' &&
+            rawCebPf != '00' &&
+            !rawCebPf.toLowerCase().contains('min'))
+        ? '$rawCebPf minutes'
+        : rawCebPf;
     final String genF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
     final String genF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
 
@@ -1922,7 +1933,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final String newWater = _valOrSaved(_waterDisCtrl, _savedWaterDis);
     final String newMahaweli = _valOrSaved(_mahaweliDisCtrl, _savedMahaweliDis);
     final String newPower = _valOrSaved(_powerCtrl, _savedPower);
-    final String newCebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String rawNewCebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
+    final String newCebPf = rawNewCebPf.replaceAll(RegExp(r'\s*minutes?\s*', caseSensitive: false), '').trim();
     final String newGenF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
     final String newGenF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
 
@@ -2676,7 +2688,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                           'CEB P. F',
                           _cebPfCtrl,
                           savedHint: _savedCebPf,
-                          keyboardType: TextInputType.text,
+                          keyboardType: TextInputType.number,
+                          suffix: 'minutes',
                         ),
                       ),
                     ],
