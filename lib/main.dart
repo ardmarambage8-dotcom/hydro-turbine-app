@@ -434,7 +434,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 2.2.0 • Discharge Alerts',
+                'Version 2.3.0 • Discharge Log in 9AM',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1845,6 +1845,11 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _powerDropKwCtrl = TextEditingController();
   final TextEditingController _powerDropMinCtrl = TextEditingController();
 
+  // Optional Water Discharge Up/Down event in 9 AM Report
+  final TextEditingController _dgWdValCtrl = TextEditingController();
+  final TextEditingController _dgWdTimeCtrl = TextEditingController();
+  String _dgWdDirection = 'down'; // 'up' or 'down'
+
   final TextEditingController _genF1Ctrl = TextEditingController();
   final TextEditingController _genF2Ctrl = TextEditingController();
 
@@ -1890,6 +1895,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _genStopMinCtrl,
       _powerDropKwCtrl,
       _powerDropMinCtrl,
+      _dgWdValCtrl,
+      _dgWdTimeCtrl,
       _genF1Ctrl,
       _genF2Ctrl,
     ]) {
@@ -2332,6 +2339,19 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       lines.add(dropParts.join(' '));
     }
 
+    final String dgWdVal = _dgWdValCtrl.text.trim();
+    final String dgWdTime = _dgWdTimeCtrl.text.trim();
+    if (dgWdVal.isNotEmpty || dgWdTime.isNotEmpty) {
+      final List<String> wdParts = ['Water discharge $_dgWdDirection'];
+      if (dgWdVal.isNotEmpty) {
+        wdParts.add('${dgWdVal}m3/s');
+      }
+      if (dgWdTime.isNotEmpty) {
+        wdParts.add('Time $dgWdTime');
+      }
+      lines.add(wdParts.join(' '));
+    }
+
     lines.addAll([
       '',
       'G1 Meter Reading: ${newCumG1.toStringAsFixed(2)}Mwh',
@@ -2456,6 +2476,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       _genStopMinCtrl.clear();
       _powerDropKwCtrl.clear();
       _powerDropMinCtrl.clear();
+      _dgWdValCtrl.clear();
+      _dgWdTimeCtrl.clear();
       _genF1Ctrl.clear();
       _genF2Ctrl.clear();
     });
@@ -2519,6 +2541,8 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     _genStopMinCtrl.dispose();
     _powerDropKwCtrl.dispose();
     _powerDropMinCtrl.dispose();
+    _dgWdValCtrl.dispose();
+    _dgWdTimeCtrl.dispose();
     _genF1Ctrl.dispose();
     _genF2Ctrl.dispose();
     super.dispose();
@@ -3207,6 +3231,200 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
                             ),
                             suffixText: 'minutes',
                             suffixStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Optional Water Discharge Up / Down Entry
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Water discharge up / down (Optional)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFBBF24),
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          final now = DateTime.now();
+                          final tStr =
+                              '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}';
+                          setState(() {
+                            _dgWdTimeCtrl.text = tStr;
+                          });
+                        },
+                        child: const Text(
+                          'Now Time',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _dgWdDirection = 'up'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _dgWdDirection == 'up'
+                                ? const Color(0xFF10B981).withOpacity(0.25)
+                                : const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _dgWdDirection == 'up'
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFF334155),
+                              width: 1.4,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _dgWdDirection == 'up'
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                size: 17,
+                                color: _dgWdDirection == 'up'
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'UP',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _dgWdDirection == 'up'
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => setState(() => _dgWdDirection = 'down'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _dgWdDirection == 'down'
+                                ? const Color(0xFFF59E0B).withOpacity(0.25)
+                                : const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _dgWdDirection == 'down'
+                                  ? const Color(0xFFF59E0B)
+                                  : const Color(0xFF334155),
+                              width: 1.4,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _dgWdDirection == 'down'
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                size: 17,
+                                color: _dgWdDirection == 'down'
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'DOWN',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _dgWdDirection == 'down'
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _dgWdValCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          onChanged: (val) {
+                            if (val.trim().isNotEmpty &&
+                                _dgWdTimeCtrl.text.trim().isEmpty) {
+                              final now = DateTime.now();
+                              _dgWdTimeCtrl.text =
+                                  '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}';
+                            }
+                          },
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. 26',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                              color: Color(0xFF64748B),
+                            ),
+                            suffixText: 'm3/s',
+                            suffixStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _dgWdTimeCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                          decoration: const InputDecoration(
+                            hintText: 'Time (e.g. 14.00)',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                              color: Color(0xFF64748B),
+                            ),
+                            prefixText: 'Time ',
+                            prefixStyle: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF94A3B8),
