@@ -1,0 +1,68 @@
+name: Build Signed Release APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Create Android project & configure Signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter create --platforms=android .
+          flutter pub get
+          dart run flutter_launcher_icons
+          sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET" \/>\n    <application/' android/app/src/main/AndroidManifest.xml
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/eagle-power.jks
+          cat << 'EOF' > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=eagle-power.jks
+          EOF
+          python3 -c '
+          with open("android/app/build.gradle.kts", "r") as f:
+              content = f.read()
+          signing_cfg = """
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("eagle-power.jks")
+                      storePassword = "${{ secrets.KEYSTORE_PASSWORD }}"
+                      keyAlias = "${{ secrets.KEY_ALIAS }}"
+                      keyPassword = "${{ secrets.KEY_PASSWORD }}"
+                  }
+              }
+          """
+          content = content.replace("buildTypes {", signing_cfg + "\n    buildTypes {")
+          content = content.replace("signingConfig = signingConfigs.getByName(\"debug\")", "signingConfig = signingConfigs.getByName(\"release\")")
+          with open("android/app/build.gradle.kts", "w") as f:
+              f.write(content)
+          '
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eagle-Power-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
