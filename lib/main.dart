@@ -18,7 +18,7 @@ class HydroTurbineApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ZZ1540 Turbine Calculator',
+      title: 'Eagle Power • Maduruoya',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0B1120),
@@ -51,6 +51,9 @@ class HydroTurbineApp extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// SECURITY PIN SCREEN
+// ============================================================================
 class PinLockScreen extends StatefulWidget {
   const PinLockScreen({super.key});
 
@@ -82,7 +85,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
     if (_pinController.text.trim() == _savedPin) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => const MainHomeScreen(),
+          builder: (_) => const MainDashboardScreen(),
         ),
       );
     } else {
@@ -237,57 +240,9 @@ class _PinLockScreenState extends State<PinLockScreen> {
   }
 }
 
-class MainHomeScreen extends StatefulWidget {
-  const MainHomeScreen({super.key});
-
-  @override
-  State<MainHomeScreen> createState() => _MainHomeScreenState();
-}
-
-class _MainHomeScreenState extends State<MainHomeScreen> {
-  int _selectedIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: const [
-          TurbineCalculatorTab(),
-          DailyGenerationTab(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
-        ),
-        child: NavigationBar(
-          backgroundColor: const Color(0xFF0F172A),
-          indicatorColor: const Color(0xFF1E293B),
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (idx) {
-            setState(() {
-              _selectedIndex = idx;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.calculate_outlined),
-              selectedIcon: Icon(Icons.calculate, color: Color(0xFF38BDF8)),
-              label: 'Calculator',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.assignment_outlined),
-              selectedIcon: Icon(Icons.assignment, color: Color(0xFF10B981)),
-              label: 'Daily Gen (9 AM)',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// ============================================================================
+// COMMON DIALOGS (CHANGE PIN & ABOUT)
+// ============================================================================
 void showCommonChangePinDialog(BuildContext context) {
   final newPinCtrl = TextEditingController();
   final confirmPinCtrl = TextEditingController();
@@ -417,7 +372,7 @@ void showCommonAboutDialog(BuildContext context) {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Turbine Running Calculator',
+              'EAGLE POWER',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -434,7 +389,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 2.3.0 • Discharge Log in 9AM',
+                'Version 3.0.0 • Dashboard Edition',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -446,7 +401,7 @@ void showCommonAboutDialog(BuildContext context) {
             const Divider(color: Color(0xFF334155)),
             const SizedBox(height: 8),
             const Text(
-              'EAGLE POWER • Hydro Operational Suite',
+              'Maduruoya Hydro Power Plant • Operational Suite',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -456,11 +411,11 @@ void showCommonAboutDialog(BuildContext context) {
             ),
             const SizedBox(height: 8),
             const Text(
-              '• Turbine Model: ZZ1540 - LJI - 190\n'
-              '• Net Head (H): Water Level - 78.64 m\n'
-              '• Output Power: H × Cum × EF × 9.81 kW\n'
-              '• CEB Load Reduction Calculator\n'
-              '• Live Cloud Sync & History (@Maduruoya#)\n• Water Discharge Up/Down Message Builder',
+              '1. Daily Generation (9:00 AM Report)\n'
+              '2. Turbine Running Calculator & CEB Reduction\n'
+              '3. Water Discharge Up / Down Alert\n'
+              '4. 9:30 AM Meter Reading Report\n'
+              '• Live Firebase Cloud Sync (@Maduruoya#)',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFFCBD5E1),
@@ -497,254 +452,147 @@ void showCommonAboutDialog(BuildContext context) {
 }
 
 // ============================================================================
-// TAB 1: TURBINE RUNNING CALCULATOR + CEB REDUCTION
+// MAIN HOME DASHBOARD (4 CLEAN ACTION CARDS)
 // ============================================================================
-class TurbineCalculatorTab extends StatefulWidget {
-  const TurbineCalculatorTab({super.key});
+class MainDashboardScreen extends StatefulWidget {
+  const MainDashboardScreen({super.key});
 
   @override
-  State<TurbineCalculatorTab> createState() => _TurbineCalculatorTabState();
+  State<MainDashboardScreen> createState() => _MainDashboardScreenState();
 }
 
-class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
-  final TextEditingController _waterLevelController = TextEditingController();
-  final TextEditingController _outflowController = TextEditingController();
-  final TextEditingController _currentGenController = TextEditingController();
-  final TextEditingController _reductionPctController = TextEditingController();
-
-  String _savedWaterLevel = '89.25';
-  String _savedOutflow = '29.0';
-  String _savedCurrentGen = '2300';
-  String _savedReductionPct = '25';
-
-  int _runningUnits = 2;
-  bool _useInterpolated = false;
-
-  // Water Discharge Up/Down WhatsApp Message Builder
-  final TextEditingController _wdTotalCtrl = TextEditingController();
-  final TextEditingController _wdMahaweliCtrl = TextEditingController();
-  final TextEditingController _wdPlantCtrl = TextEditingController();
-  final TextEditingController _wdPowerCtrl = TextEditingController();
-  final TextEditingController _wdTimeCtrl = TextEditingController();
-
-  String _wdDirection = 'down'; // 'up' or 'down'
-  String _savedWdTotal = '26';
-  String _savedWdMahaweli = '00';
-  String _savedWdPlant = '26';
-  String _savedWdPower = '2300';
-
-  static const double _tailwaterOffset = 78.64;
-
-  String _getCurrentDotTime() {
-    final now = DateTime.now();
-    return '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}';
-  }
+class _MainDashboardScreenState extends State<MainDashboardScreen> {
+  bool _isCloudConnected = false;
+  bool _isChecking = false;
+  String _cloudBannerText = 'Checking Cloud Sync...';
 
   @override
   void initState() {
     super.initState();
-    _wdTimeCtrl.text = _getCurrentDotTime();
-    _loadSavedCalcInputs();
-    _waterLevelController.addListener(_onCalcInputChanged);
-    _outflowController.addListener(_onCalcInputChanged);
-    _currentGenController.addListener(_onCalcInputChanged);
-    _reductionPctController.addListener(_onCalcInputChanged);
-    _wdTotalCtrl.addListener(_onWdInputChanged);
-    _wdMahaweliCtrl.addListener(_onWdInputChanged);
-    _wdPlantCtrl.addListener(_onWdInputChanged);
-    _wdPowerCtrl.addListener(_onWdInputChanged);
-    _wdTimeCtrl.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _checkCloudStatus();
   }
 
-  Future<void> _loadSavedCalcInputs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
+  Future<void> _checkCloudStatus() async {
+    if (_isChecking) return;
     setState(() {
-      _savedWaterLevel = prefs.getString('calc_water_level') ?? '89.25';
-      _savedOutflow = prefs.getString('calc_outflow') ?? '29.0';
-      _savedCurrentGen = prefs.getString('calc_current_gen') ?? '2300';
-      _savedReductionPct = prefs.getString('calc_reduction_pct') ?? '25';
-      _runningUnits = prefs.getInt('calc_running_units') ?? 2;
-      _useInterpolated = prefs.getBool('calc_use_interp') ?? false;
-      _wdDirection = prefs.getString('wd_direction') ?? 'down';
-      _savedWdTotal = prefs.getString('wd_total') ?? '26';
-      _savedWdMahaweli = prefs.getString('wd_mahaweli') ?? '00';
-      _savedWdPlant = prefs.getString('wd_plant') ?? '26';
-      _savedWdPower = prefs.getString('wd_power') ?? '2300';
+      _isChecking = true;
+      _cloudBannerText = 'Connecting to Cloud...';
     });
+
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/latest.json');
+      final res = await http.get(uri).timeout(const Duration(seconds: 7));
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        String lastDate = '';
+        if (decoded != null && decoded is Map<String, dynamic>) {
+          lastDate = (decoded['updated_date'] ?? '').toString();
+        }
+        if (mounted) {
+          setState(() {
+            _isCloudConnected = true;
+            _cloudBannerText = lastDate.isNotEmpty
+                ? 'Cloud Synced • Last 9 AM Save: $lastDate'
+                : 'Cloud Connected • @Maduruoya#';
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isCloudConnected = false;
+            _cloudBannerText = 'Offline Mode • Using Local Storage';
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isCloudConnected = false;
+          _cloudBannerText = 'Offline Mode • Using Local Storage';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isChecking = false);
+      }
+    }
   }
 
-  Future<void> _saveWdInputs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final t = _wdTotalCtrl.text.trim();
-    final m = _wdMahaweliCtrl.text.trim();
-    final p = _wdPlantCtrl.text.trim();
-    final pw = _wdPowerCtrl.text.trim();
-    if (t.isNotEmpty) {
-      _savedWdTotal = t;
-      await prefs.setString('wd_total', t);
-    }
-    if (m.isNotEmpty) {
-      _savedWdMahaweli = m;
-      await prefs.setString('wd_mahaweli', m);
-    }
-    if (p.isNotEmpty) {
-      _savedWdPlant = p;
-      await prefs.setString('wd_plant', p);
-    }
-    if (pw.isNotEmpty) {
-      _savedWdPower = pw;
-      await prefs.setString('wd_power', pw);
-    }
-    await prefs.setString('wd_direction', _wdDirection);
+  String _todayLabel() {
+    final now = DateTime.now();
+    return '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
   }
 
-  void _onWdInputChanged() {
-    _saveWdInputs();
-    setState(() {});
-  }
-
-  String _buildDischargeChangeMessage() {
-    final String totalVal = _wdTotalCtrl.text.trim().isNotEmpty
-        ? _wdTotalCtrl.text.trim()
-        : _savedWdTotal;
-    final String mahaweliVal = _wdMahaweliCtrl.text.trim().isNotEmpty
-        ? _wdMahaweliCtrl.text.trim()
-        : _savedWdMahaweli;
-    final String plantVal = _wdPlantCtrl.text.trim().isNotEmpty
-        ? _wdPlantCtrl.text.trim()
-        : _savedWdPlant;
-    final String powerVal = _wdPowerCtrl.text.trim().isNotEmpty
-        ? _wdPowerCtrl.text.trim()
-        : _savedWdPower;
-    final String timeVal = _wdTimeCtrl.text.trim().isNotEmpty
-        ? _wdTimeCtrl.text.trim()
-        : _getCurrentDotTime();
-
-    return 'Water discharge $_wdDirection ${totalVal}m3/s\n'
-        'Mahaweli  $mahaweliVal m3/s\n'
-        'P. Plant discharge ${plantVal}m3/s\n'
-        'Power ${powerVal}kw\n'
-        'Time $timeVal';
-  }
-
-  Future<void> _saveCalcInputs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final wl = _waterLevelController.text.trim();
-    final ofl = _outflowController.text.trim();
-    final cg = _currentGenController.text.trim();
-    final rp = _reductionPctController.text.trim();
-
-    if (wl.isNotEmpty) {
-      _savedWaterLevel = wl;
-      await prefs.setString('calc_water_level', wl);
-    }
-    if (ofl.isNotEmpty) {
-      _savedOutflow = ofl;
-      await prefs.setString('calc_outflow', ofl);
-    }
-    if (cg.isNotEmpty) {
-      _savedCurrentGen = cg;
-      await prefs.setString('calc_current_gen', cg);
-    }
-    if (rp.isNotEmpty) {
-      _savedReductionPct = rp;
-      await prefs.setString('calc_reduction_pct', rp);
-    }
-    await prefs.setInt('calc_running_units', _runningUnits);
-    await prefs.setBool('calc_use_interp', _useInterpolated);
-  }
-
-  void _onCalcInputChanged() {
-    _saveCalcInputs();
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _waterLevelController.dispose();
-    _outflowController.dispose();
-    _currentGenController.dispose();
-    _reductionPctController.dispose();
-    _wdTotalCtrl.dispose();
-    _wdMahaweliCtrl.dispose();
-    _wdPlantCtrl.dispose();
-    _wdPowerCtrl.dispose();
-    _wdTimeCtrl.dispose();
-    super.dispose();
-  }
-
-  double _calculateInterpolatedEf(double h, double q) {
-    final double clampedH = h.clamp(6.0, 20.0);
-    final double clampedQ = q.clamp(6.0, 21.0);
-
-    final int hLowIdx = (clampedH.floor() - 6).clamp(0, 14);
-    final int hHighIdx = (clampedH.ceil() - 6).clamp(0, 14);
-    final int qLow = clampedQ.floor().clamp(6, 21);
-    final int qHigh = clampedQ.ceil().clamp(6, 21);
-
-    final ChartPoint? p11 = TurbineChartData.grid[qLow]?[hLowIdx];
-    final ChartPoint? p12 = TurbineChartData.grid[qLow]?[hHighIdx];
-    final ChartPoint? p21 = TurbineChartData.grid[qHigh]?[hLowIdx];
-    final ChartPoint? p22 = TurbineChartData.grid[qHigh]?[hHighIdx];
-
-    final int nearHIdx = TurbineChartData.nearestHeadIndex(clampedH);
-    final int nearQ = TurbineChartData.nearestFlow(clampedQ);
-    final ChartPoint? fallback = TurbineChartData.grid[nearQ]?[nearHIdx];
-    final double baseEf = fallback?.ef ?? 85.0;
-
-    if (p11 == null || p12 == null || p21 == null || p22 == null) {
-      return baseEf;
-    }
-
-    final double hFrac =
-        (hHighIdx == hLowIdx) ? 0.0 : (clampedH - (hLowIdx + 6));
-    final double qFrac = (qHigh == qLow) ? 0.0 : (clampedQ - qLow);
-
-    final double efQ1 = p11.ef + (p12.ef - p11.ef) * hFrac;
-    final double efQ2 = p21.ef + (p22.ef - p21.ef) * hFrac;
-    return efQ1 + (efQ2 - efQ1) * qFrac;
-  }
-
-  Widget _buildParamBox(
-      String code, String label, String value, Color accentColor) {
-    return Expanded(
+  Widget _buildMenuCard({
+    required String number,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withOpacity(0.5)),
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accentColor.withOpacity(0.75), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withOpacity(0.12),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Text(
-              code,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: accentColor,
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: accentColor.withOpacity(0.6)),
+              ),
+              child: Icon(icon, size: 28, color: accentColor),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF94A3B8),
-              ),
-              textAlign: TextAlign.center,
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 18,
+              color: accentColor,
             ),
           ],
         ),
@@ -754,91 +602,43 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
 
   @override
   Widget build(BuildContext context) {
-    final String activeWaterStr = _waterLevelController.text.trim().isNotEmpty
-        ? _waterLevelController.text.trim()
-        : _savedWaterLevel;
-    final String activeOutflowStr = _outflowController.text.trim().isNotEmpty
-        ? _outflowController.text.trim()
-        : _savedOutflow;
-
-    final double? waterLevel = double.tryParse(activeWaterStr);
-    final double? totalOutflow = double.tryParse(activeOutflowStr);
-
-    final double? netHead =
-        waterLevel != null ? (waterLevel - _tailwaterOffset) : null;
-    final double? flowPerTurbine =
-        totalOutflow != null ? (totalOutflow / _runningUnits) : null;
-
-    ChartPoint? nearestPoint;
-    double? finalEf;
-    double? powerPerTurbineKw;
-    double? totalPlantPowerKw;
-    String? statusWarning;
-    double chartH = 0.0;
-    int chartQ = 0;
-
-    if (netHead == null || flowPerTurbine == null) {
-      statusWarning = 'Enter valid numeric values for Water Level and Outflow.';
-    } else if (netHead <= 0) {
-      statusWarning =
-          'Water Level must be greater than $_tailwaterOffset m (Net Head H > 0).';
-    } else if (flowPerTurbine <= 0) {
-      statusWarning = 'Total Outflow must be greater than 0 Cum/s.';
-    } else {
-      final int headIdx = TurbineChartData.nearestHeadIndex(netHead);
-      final int nearFlow = TurbineChartData.nearestFlow(flowPerTurbine);
-      nearestPoint = TurbineChartData.grid[nearFlow]?[headIdx];
-
-      if (nearestPoint == null) {
-        statusWarning =
-            'Operating point (H=${netHead.toStringAsFixed(2)}m, Q=${flowPerTurbine.toStringAsFixed(2)} Cum/s) is outside the valid chart region.';
-      } else {
-        chartH = TurbineChartData.heads[headIdx];
-        chartQ = nearFlow;
-        finalEf = _useInterpolated
-            ? _calculateInterpolatedEf(netHead, flowPerTurbine)
-            : nearestPoint.ef;
-        powerPerTurbineKw =
-            netHead * flowPerTurbine * (finalEf / 100.0) * 9.81;
-        totalPlantPowerKw = powerPerTurbineKw * _runningUnits;
-
-        if (netHead < 6.0 ||
-            netHead > 20.0 ||
-            flowPerTurbine < 6.0 ||
-            flowPerTurbine > 21.0) {
-          statusWarning =
-              'Note: H or Flow is outside standard chart bounds (H: 6–20m, Q: 6–21 Cum/s). Using nearest chart boundary.';
-        }
-      }
-    }
-
-    final String activeGenStr = _currentGenController.text.trim().isNotEmpty
-        ? _currentGenController.text.trim()
-        : _savedCurrentGen;
-    final String activeRedStr = _reductionPctController.text.trim().isNotEmpty
-        ? _reductionPctController.text.trim()
-        : _savedReductionPct;
-
-    final double currentGenKw = double.tryParse(activeGenStr) ?? 0.0;
-    final double reductionPct = double.tryParse(activeRedStr) ?? 0.0;
-    final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
-    final double targetGenKw =
-        (currentGenKw - reducedAmountKw).clamp(0.0, double.infinity);
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(
-              'Turbine Running Calculator',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                '1795510508002.jpg',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.bolt,
+                  color: Color(0xFF38BDF8),
+                ),
+              ),
             ),
-            Text(
-              'Chart: ZZ1540 - LJI - 190 • Eagle Power',
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'EAGLE POWER',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                Text(
+                  'Maduruoya • ${_todayLabel()}',
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+              ],
             ),
           ],
         ),
@@ -853,958 +653,138 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
             icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
             onPressed: () => showCommonAboutDialog(context),
           ),
-          IconButton(
-            tooltip: 'Reset Defaults',
-            icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
-            onPressed: () async {
-              _waterLevelController.clear();
-              _outflowController.clear();
-              _currentGenController.clear();
-              _reductionPctController.clear();
-              setState(() {
-                _savedWaterLevel = '89.25';
-                _savedOutflow = '29.0';
-                _savedCurrentGen = '2300';
-                _savedReductionPct = '25';
-                _runningUnits = 2;
-                _useInterpolated = false;
-              });
-              await _saveCalcInputs();
-            },
-          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'PLANT INPUTS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                      color: Color(0xFF38BDF8),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Water Level (m)',
-                              style: TextStyle(
-                                  fontSize: 13, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _waterLevelController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: _savedWaterLevel,
-                                hintStyle: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Net Head H (m)',
-                              style: TextStyle(
-                                  fontSize: 13, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              height: 52,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              alignment: Alignment.centerLeft,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFF334155)),
-                              ),
-                              child: Text(
-                                netHead != null
-                                    ? netHead.toStringAsFixed(2)
-                                    : '--',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF38BDF8),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Total Outflow Qmax (Cum/s)',
-                    style: TextStyle(fontSize: 13, color: Color(0xFFCBD5E1)),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _outflowController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: _savedOutflow,
-                      hintStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                      suffixText: 'Cum/s',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Running Units:',
-                        style:
-                            TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
-                      ),
-                      SegmentedButton<int>(
-                        segments: const [
-                          ButtonSegment<int>(
-                            value: 1,
-                            label: Text('1 Turbine'),
-                          ),
-                          ButtonSegment<int>(
-                            value: 2,
-                            label: Text('2 Turbines'),
-                          ),
-                        ],
-                        selected: {_runningUnits},
-                        onSelectionChanged: (Set<int> newSelection) {
-                          setState(() {
-                            _runningUnits = newSelection.first;
-                          });
-                          _saveCalcInputs();
-                        },
-                      ),
-                    ],
-                  ),
-                  if (flowPerTurbine != null && flowPerTurbine > 0) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Flow per Turbine: ${flowPerTurbine.toStringAsFixed(2)} Cum/s each',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF10B981),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (statusWarning != null)
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Cloud Status Strip
               Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF78350F).withOpacity(0.35),
+                  color: _isCloudConnected
+                      ? const Color(0xFF064E3B).withOpacity(0.45)
+                      : const Color(0xFF78350F).withOpacity(0.35),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF59E0B)),
+                  border: Border.all(
+                    color: _isCloudConnected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        color: Color(0xFFF59E0B)),
-                    const SizedBox(width: 10),
+                    Icon(
+                      _isCloudConnected ? Icons.cloud_done : Icons.cloud_off,
+                      size: 18,
+                      color: _isCloudConnected
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        statusWarning,
-                        style: const TextStyle(
-                            fontSize: 13, color: Color(0xFFFDE68A)),
+                        _cloudBannerText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _isCloudConnected
+                              ? const Color(0xFFA7F3D0)
+                              : const Color(0xFFFDE68A),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            if (powerPerTurbineKw != null && nearestPoint != null) ...[
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border:
-                      Border.all(color: const Color(0xFF10B981), width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'OUTPUT POWER (PER TURBINE)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                            color: Color(0xFF6EE7B7),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF065F46),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'H=${chartH.toStringAsFixed(1)}m, Q=$chartQ',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          powerPerTurbineKw.toStringAsFixed(2),
-                          style: const TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'kW',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF6EE7B7),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${(powerPerTurbineKw / 1000.0).toStringAsFixed(3)} MW',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFA7F3D0),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Color(0xFF047857), height: 22),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'TOTAL PLANT ($_runningUnits UNIT${_runningUnits > 1 ? 'S' : ''}):',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFA7F3D0),
-                          ),
-                        ),
-                        Text(
-                          '${totalPlantPowerKw!.toStringAsFixed(2)} kW (${(totalPlantPowerKw / 1000.0).toStringAsFixed(3)} MW)',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'TURBINE CONTROL SETTINGS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
+                    InkWell(
+                      onTap: _isChecking ? null : _checkCloudStatus,
+                      child: const Icon(
+                        Icons.refresh,
+                        size: 18,
                         color: Color(0xFF38BDF8),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        _buildParamBox(
-                          'BA',
-                          'Blade Angle',
-                          '${nearestPoint.ba}°',
-                          const Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildParamBox(
-                          'WGA',
-                          'Wicket Gate',
-                          '${nearestPoint.wga}°',
-                          const Color(0xFF38BDF8),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildParamBox(
-                          'EF',
-                          'Efficiency',
-                          '${finalEf!.toStringAsFixed(1)}%',
-                          const Color(0xFF10B981),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Interpolate intermediate EF values:',
-                          style:
-                              TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        ),
-                        Switch(
-                          value: _useInterpolated,
-                          activeColor: const Color(0xFF38BDF8),
-                          onChanged: (v) {
-                            setState(() {
-                              _useInterpolated = v;
-                            });
-                            _saveCalcInputs();
-                          },
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 18),
+
+              // 1. DAILY GENERATION (9:00 AM)
+              _buildMenuCard(
+                number: '1',
+                title: 'Daily Generation',
+                subtitle: '9:00 AM Meter Readings, Cloud Sync & WhatsApp Report',
+                icon: Icons.assignment_turned_in_rounded,
+                accentColor: const Color(0xFF10B981),
+                gradientColors: const [Color(0xFF064E3B), Color(0xFF0F172A)],
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DailyGenerationScreen(),
+                    ),
+                  );
+                  _checkCloudStatus();
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 2. TURBINE RUNNING CALCULATOR
+              _buildMenuCard(
+                number: '2',
+                title: 'Turbine Running Calculator',
+                subtitle: 'Water Level, Outflow (BA, WGA, EF) & CEB Reduction %',
+                icon: Icons.calculate_rounded,
+                accentColor: const Color(0xFF38BDF8),
+                gradientColors: const [Color(0xFF0C4A6E), Color(0xFF0F172A)],
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const TurbineCalculatorScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 3. WATER DISCHARGE (UP / DOWN)
+              _buildMenuCard(
+                number: '3',
+                title: 'Water Discharge',
+                subtitle: 'Up / Down Discharge, Mahaweli & Power WhatsApp Alert',
+                icon: Icons.water_drop_rounded,
+                accentColor: const Color(0xFFF59E0B),
+                gradientColors: const [Color(0xFF78350F), Color(0xFF0F172A)],
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const WaterDischargeScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 4. 9.30 READING
+              _buildMenuCard(
+                number: '4',
+                title: '9.30 Reading',
+                subtitle: 'T1, T2, NDEP VA & CEB (Mwh) WhatsApp Message Builder',
+                icon: Icons.access_time_filled_rounded,
+                accentColor: const Color(0xFFA855F7),
+                gradientColors: const [Color(0xFF4C1D95), Color(0xFF0F172A)],
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const Reading930Screen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'CEB POWER REDUCTION (%)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          color: Color(0xFFF59E0B),
-                        ),
-                      ),
-                      if (totalPlantPowerKw != null)
-                        InkWell(
-                          onTap: () {
-                            _currentGenController.text =
-                                totalPlantPowerKw!.toStringAsFixed(0);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFF38BDF8)),
-                            ),
-                            child: const Text(
-                              'Use Plant Power',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF38BDF8),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Generating Power (kW)',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _currentGenController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: _savedCurrentGen,
-                                hintStyle: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: 'kW',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Reduce (%)',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _reductionPctController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFF59E0B),
-                              ),
-                              decoration: InputDecoration(
-                                hintText: _savedReductionPct,
-                                hintStyle: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: '%',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 14),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF78350F), Color(0xFF0F172A)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFF59E0B),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'REDUCTION AMOUNT (${reductionPct.toStringAsFixed(0)}% TO REDUCE)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                            color: Color(0xFFFBBF24),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              reducedAmountKw.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'kW',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFF59E0B),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${(reducedAmountKw / 1000.0).toStringAsFixed(3)} MW',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFFDE68A),
-                          ),
-                        ),
-                        const Divider(color: Color(0xFF92400E), height: 20),
-                        Text(
-                          'Remaining Target Power: ${targetGenKw.toStringAsFixed(1)} kW (${(targetGenKw / 1000.0).toStringAsFixed(3)} MW)',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF6EE7B7),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ================================================================
-            // NEW CARD: WATER DISCHARGE UP / DOWN WHATSAPP MESSAGE BUILDER
-            // ================================================================
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF38BDF8), width: 1.4),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'WATER DISCHARGE UP / DOWN ALERT',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                            color: Color(0xFF38BDF8),
-                          ),
-                        ),
-                      ),
-                      if (totalPlantPowerKw != null)
-                        InkWell(
-                          onTap: () {
-                            final String outStr = activeOutflowStr;
-                            final String pwrStr =
-                                totalPlantPowerKw!.toStringAsFixed(0);
-                            _wdTotalCtrl.text = outStr;
-                            _wdPlantCtrl.text = outStr;
-                            _wdPowerCtrl.text = pwrStr;
-                            _wdTimeCtrl.text = _getCurrentDotTime();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFF10B981)),
-                            ),
-                            child: const Text(
-                              'Fill from Calc',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF10B981),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // UP / DOWN Toggle
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment<String>(
-                        value: 'up',
-                        icon: Icon(Icons.arrow_upward, size: 16),
-                        label: Text('UP (වැඩි කළා)'),
-                      ),
-                      ButtonSegment<String>(
-                        value: 'down',
-                        icon: Icon(Icons.arrow_downward, size: 16),
-                        label: Text('DOWN (අඩු කළා)'),
-                      ),
-                    ],
-                    selected: {_wdDirection},
-                    onSelectionChanged: (Set<String> sel) {
-                      setState(() {
-                        _wdDirection = sel.first;
-                      });
-                      _saveWdInputs();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Row 1: Water discharge & Mahaweli
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Water discharge $_wdDirection',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 5),
-                            TextField(
-                              controller: _wdTotalCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
-                              decoration: InputDecoration(
-                                hintText: _savedWdTotal,
-                                hintStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: 'm3/s',
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Mahaweli',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 5),
-                            TextField(
-                              controller: _wdMahaweliCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
-                              decoration: InputDecoration(
-                                hintText: _savedWdMahaweli,
-                                hintStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: 'm3/s',
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Row 2: P. Plant discharge & Power
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'P. Plant discharge',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 5),
-                            TextField(
-                              controller: _wdPlantCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
-                              decoration: InputDecoration(
-                                hintText: _savedWdPlant,
-                                hintStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: 'm3/s',
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Power',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
-                            ),
-                            const SizedBox(height: 5),
-                            TextField(
-                              controller: _wdPowerCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
-                              decoration: InputDecoration(
-                                hintText: _savedWdPower,
-                                hintStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                                suffixText: 'kw',
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Row 3: Time with Now button
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Time (e.g. 14.00)',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFFCBD5E1)),
-                          ),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                _wdTimeCtrl.text = _getCurrentDotTime();
-                              });
-                            },
-                            child: const Text(
-                              'Set Now Time',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF38BDF8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      TextField(
-                        controller: _wdTimeCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                        decoration: InputDecoration(
-                          hintText: _getCurrentDotTime(),
-                          hintStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Live WhatsApp Preview Box
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF064E3B).withOpacity(0.35),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF10B981)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.chat,
-                                size: 15, color: Color(0xFF10B981)),
-                            SizedBox(width: 6),
-                            Text(
-                              'WHATSAPP MESSAGE PREVIEW',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                                color: Color(0xFF6EE7B7),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        SelectableText(
-                          _buildDischargeChangeMessage(),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontFamily: 'monospace',
-                            color: Colors.white,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Copy WhatsApp Message Button
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await _saveWdInputs();
-                      final msg = _buildDischargeChangeMessage();
-                      await Clipboard.setData(ClipboardData(text: msg));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Water discharge WhatsApp message copied!'),
-                            backgroundColor: Color(0xFF10B981),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text(
-                      'COPY DISCHARGE MESSAGE',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );
@@ -1812,27 +792,24 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
 }
 
 // ============================================================================
-// TAB 2: DAILY GENERATION REPORT (9:00 AM RECORD) WITH LIVE CLOUD SYNC
+// SCREEN 1: DAILY GENERATION REPORT (9:00 AM RECORD)
 // ============================================================================
-class DailyGenerationTab extends StatefulWidget {
-  const DailyGenerationTab({super.key});
+class DailyGenerationScreen extends StatefulWidget {
+  const DailyGenerationScreen({super.key});
 
   @override
-  State<DailyGenerationTab> createState() => _DailyGenerationTabState();
+  State<DailyGenerationScreen> createState() => _DailyGenerationScreenState();
 }
 
-class _DailyGenerationTabState extends State<DailyGenerationTab> {
-  // KOTUWA 1: Panel Meter Readings (Yesterday 9 AM vs Today 9 AM)
+class _DailyGenerationScreenState extends State<DailyGenerationScreen> {
   final TextEditingController _prevPanelG1Ctrl = TextEditingController();
   final TextEditingController _prevPanelG2Ctrl = TextEditingController();
   final TextEditingController _todayPanelG1Ctrl = TextEditingController();
   final TextEditingController _todayPanelG2Ctrl = TextEditingController();
 
-  // KOTUWA 2: Previous Cumulative Totals (G1 & G2)
   final TextEditingController _prevCumG1Ctrl = TextEditingController();
   final TextEditingController _prevCumG2Ctrl = TextEditingController();
 
-  // Plant & Event Details for WhatsApp Report
   final TextEditingController _dateCtrl = TextEditingController();
   final TextEditingController _resLevelCtrl = TextEditingController();
   final TextEditingController _waterDisCtrl = TextEditingController();
@@ -1840,20 +817,17 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   final TextEditingController _powerCtrl = TextEditingController();
   final TextEditingController _cebPfCtrl = TextEditingController();
 
-  // Separated numeric fields for Generator stop & Power drop
   final TextEditingController _genStopMinCtrl = TextEditingController();
   final TextEditingController _powerDropKwCtrl = TextEditingController();
   final TextEditingController _powerDropMinCtrl = TextEditingController();
 
-  // Optional Water Discharge Up/Down event in 9 AM Report
   final TextEditingController _dgWdValCtrl = TextEditingController();
   final TextEditingController _dgWdTimeCtrl = TextEditingController();
-  String _dgWdDirection = 'down'; // 'up' or 'down'
+  String _dgWdDirection = 'down';
 
   final TextEditingController _genF1Ctrl = TextEditingController();
   final TextEditingController _genF2Ctrl = TextEditingController();
 
-  // Saved / fallback values displayed in dim hint style
   String _savedPrevPanelG1 = '';
   String _savedPrevPanelG2 = '';
   String _savedPrevCumG1 = '122314.38';
@@ -1870,7 +844,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   bool _isLoaded = false;
   bool _isSyncing = false;
   String _cloudStatus = 'Connecting...';
-  String _lastSyncedDate = '';
   bool _isCloudConnected = false;
 
   @override
@@ -1940,7 +913,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
           .trim();
       _savedGenF1 = prefs.getString('dg_gen_f1') ?? '00';
       _savedGenF2 = prefs.getString('dg_gen_f2') ?? '00';
-      _lastSyncedDate = prefs.getString('dg_last_sync_date') ?? '';
 
       _syncDateToToday();
       _isLoaded = true;
@@ -2015,7 +987,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
               _savedCebPf = cCebPf;
               _savedGenF1 = cGenF1;
               _savedGenF2 = cGenF2;
-              _lastSyncedDate = cDate;
               _isCloudConnected = true;
               _cloudStatus = cDate.isNotEmpty
                   ? 'Cloud Synced (Last: $cDate)'
@@ -2033,7 +1004,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             }
           }
         } else {
-          // Database is empty yet (first time)
           if (mounted) {
             setState(() {
               _isCloudConnected = true;
@@ -2121,7 +1091,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
           )
           .timeout(const Duration(seconds: 8));
 
-      // Also save a history record by date (YYYY-MM-DD)
       final String safeDateKey = dateStr.replaceAll('/', '-');
       final Map<String, dynamic> historyPayload = {
         ...latestPayload,
@@ -2148,7 +1117,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         if (mounted) {
           setState(() {
             _isCloudConnected = true;
-            _lastSyncedDate = dateStr;
             _cloudStatus = 'Cloud Synced (Last: $dateStr)';
           });
         }
@@ -2177,7 +1145,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
       final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/history.json');
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
 
-      if (mounted) Navigator.pop(context); // close loader
+      if (mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -2193,7 +1161,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
         }
 
         final List<String> sortedKeys = decoded.keys.toList()
-          ..sort((a, b) => b.compareTo(a)); // newest first
+          ..sort((a, b) => b.compareTo(a));
 
         if (!mounted) return;
         showDialog(
@@ -2402,7 +1370,9 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     final String newMahaweli = _valOrSaved(_mahaweliDisCtrl, _savedMahaweliDis);
     final String newPower = _valOrSaved(_powerCtrl, _savedPower);
     final String rawNewCebPf = _valOrSaved(_cebPfCtrl, _savedCebPf);
-    final String newCebPf = rawNewCebPf.replaceAll(RegExp(r'\s*minutes?\s*', caseSensitive: false), '').trim();
+    final String newCebPf = rawNewCebPf
+        .replaceAll(RegExp(r'\s*minutes?\s*', caseSensitive: false), '')
+        .trim();
     final String newGenF1 = _valOrSaved(_genF1Ctrl, _savedGenF1);
     final String newGenF2 = _valOrSaved(_genF2Ctrl, _savedGenF2);
 
@@ -2424,7 +1394,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     await prefs.setString('dg_gen_f2', newGenF2);
     await prefs.setString('dg_last_sync_date', todayDate);
 
-    // Push to Firebase Cloud Database so all operators get updated values
     final bool cloudOk = await _pushToCloud(
       dateStr: todayDate,
       prevPanelG1: newSavedPanelG1,
@@ -2680,11 +1649,6 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             icon: const Icon(Icons.history, color: Color(0xFFF59E0B)),
             onPressed: _showCloudHistoryDialog,
           ),
-          IconButton(
-            tooltip: 'About App',
-            icon: const Icon(Icons.info_outline, color: Color(0xFF94A3B8)),
-            onPressed: () => showCommonAboutDialog(context),
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -2747,9 +1711,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
               ),
             ),
 
-            // ================================================================
-            // KOTUWU 1: PANEL METER READINGS (4 READINGS)
-            // ================================================================
+            // 1. PANEL METER READINGS
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2860,9 +1822,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             ),
             const SizedBox(height: 14),
 
-            // ================================================================
-            // KOTUWU 2: PREVIOUS CUMULATIVE TOTAL
-            // ================================================================
+            // 2. PREVIOUS CUMULATIVE TOTAL
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2909,9 +1869,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             ),
             const SizedBox(height: 14),
 
-            // ================================================================
-            // KOTUWU 3: FINAL TOTALS
-            // ================================================================
+            // 3. FINAL TOTALS
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -3049,9 +2007,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             ),
             const SizedBox(height: 14),
 
-            // ================================================================
-            // KOTUWU 4: PLANT, DISCHARGE & OUTAGE DETAILS
-            // ================================================================
+            // 4. PLANT, DISCHARGE & OUTAGE DETAILS
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -3464,9 +2420,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             ),
             const SizedBox(height: 14),
 
-            // ================================================================
-            // KOTUWU 5: LIVE WHATSAPP MESSAGE PREVIEW
-            // ================================================================
+            // 5. LIVE WHATSAPP MESSAGE PREVIEW
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -3507,9 +2461,7 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
             ),
             const SizedBox(height: 16),
 
-            // ================================================================
-            // KOTUWU 6: SAVE TO CLOUD & COPY BUTTONS
-            // ================================================================
+            // 6. SAVE TO CLOUD & COPY BUTTONS
             ElevatedButton.icon(
               onPressed: (todayPanelG1 == null || todayPanelG2 == null)
                   ? null
@@ -3563,4 +2515,1737 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
   }
 }
 
+// ============================================================================
+// SCREEN 2: TURBINE RUNNING CALCULATOR + CEB REDUCTION
+// ============================================================================
+class TurbineCalculatorScreen extends StatefulWidget {
+  const TurbineCalculatorScreen({super.key});
 
+  @override
+  State<TurbineCalculatorScreen> createState() =>
+      _TurbineCalculatorScreenState();
+}
+
+class _TurbineCalculatorScreenState extends State<TurbineCalculatorScreen> {
+  final TextEditingController _waterLevelController = TextEditingController();
+  final TextEditingController _outflowController = TextEditingController();
+  final TextEditingController _currentGenController = TextEditingController();
+  final TextEditingController _reductionPctController = TextEditingController();
+
+  String _savedWaterLevel = '89.25';
+  String _savedOutflow = '29.0';
+  String _savedCurrentGen = '2300';
+  String _savedReductionPct = '25';
+
+  int _runningUnits = 2;
+  bool _useInterpolated = false;
+
+  static const double _tailwaterOffset = 78.64;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCalcInputs();
+    _waterLevelController.addListener(_onCalcInputChanged);
+    _outflowController.addListener(_onCalcInputChanged);
+    _currentGenController.addListener(_onCalcInputChanged);
+    _reductionPctController.addListener(_onCalcInputChanged);
+  }
+
+  Future<void> _loadSavedCalcInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _savedWaterLevel = prefs.getString('calc_water_level') ?? '89.25';
+      _savedOutflow = prefs.getString('calc_outflow') ?? '29.0';
+      _savedCurrentGen = prefs.getString('calc_current_gen') ?? '2300';
+      _savedReductionPct = prefs.getString('calc_reduction_pct') ?? '25';
+      _runningUnits = prefs.getInt('calc_running_units') ?? 2;
+      _useInterpolated = prefs.getBool('calc_use_interp') ?? false;
+    });
+  }
+
+  Future<void> _saveCalcInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final wl = _waterLevelController.text.trim();
+    final ofl = _outflowController.text.trim();
+    final cg = _currentGenController.text.trim();
+    final rp = _reductionPctController.text.trim();
+
+    if (wl.isNotEmpty) {
+      _savedWaterLevel = wl;
+      await prefs.setString('calc_water_level', wl);
+    }
+    if (ofl.isNotEmpty) {
+      _savedOutflow = ofl;
+      await prefs.setString('calc_outflow', ofl);
+    }
+    if (cg.isNotEmpty) {
+      _savedCurrentGen = cg;
+      await prefs.setString('calc_current_gen', cg);
+    }
+    if (rp.isNotEmpty) {
+      _savedReductionPct = rp;
+      await prefs.setString('calc_reduction_pct', rp);
+    }
+    await prefs.setInt('calc_running_units', _runningUnits);
+    await prefs.setBool('calc_use_interp', _useInterpolated);
+  }
+
+  void _onCalcInputChanged() {
+    _saveCalcInputs();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _waterLevelController.dispose();
+    _outflowController.dispose();
+    _currentGenController.dispose();
+    _reductionPctController.dispose();
+    super.dispose();
+  }
+
+  double _calculateInterpolatedEf(double h, double q) {
+    final double clampedH = h.clamp(6.0, 20.0);
+    final double clampedQ = q.clamp(6.0, 21.0);
+
+    final int hLowIdx = (clampedH.floor() - 6).clamp(0, 14);
+    final int hHighIdx = (clampedH.ceil() - 6).clamp(0, 14);
+    final int qLow = clampedQ.floor().clamp(6, 21);
+    final int qHigh = clampedQ.ceil().clamp(6, 21);
+
+    final ChartPoint? p11 = TurbineChartData.grid[qLow]?[hLowIdx];
+    final ChartPoint? p12 = TurbineChartData.grid[qLow]?[hHighIdx];
+    final ChartPoint? p21 = TurbineChartData.grid[qHigh]?[hLowIdx];
+    final ChartPoint? p22 = TurbineChartData.grid[qHigh]?[hHighIdx];
+
+    final int nearHIdx = TurbineChartData.nearestHeadIndex(clampedH);
+    final int nearQ = TurbineChartData.nearestFlow(clampedQ);
+    final ChartPoint? fallback = TurbineChartData.grid[nearQ]?[nearHIdx];
+    final double baseEf = fallback?.ef ?? 85.0;
+
+    if (p11 == null || p12 == null || p21 == null || p22 == null) {
+      return baseEf;
+    }
+
+    final double hFrac =
+        (hHighIdx == hLowIdx) ? 0.0 : (clampedH - (hLowIdx + 6));
+    final double qFrac = (qHigh == qLow) ? 0.0 : (clampedQ - qLow);
+
+    final double efQ1 = p11.ef + (p12.ef - p11.ef) * hFrac;
+    final double efQ2 = p21.ef + (p22.ef - p21.ef) * hFrac;
+    return efQ1 + (efQ2 - efQ1) * qFrac;
+  }
+
+  Widget _buildParamBox(
+      String code, String label, String value, Color accentColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.5)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              code,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF94A3B8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String activeWaterStr = _waterLevelController.text.trim().isNotEmpty
+        ? _waterLevelController.text.trim()
+        : _savedWaterLevel;
+    final String activeOutflowStr = _outflowController.text.trim().isNotEmpty
+        ? _outflowController.text.trim()
+        : _savedOutflow;
+
+    final double? waterLevel = double.tryParse(activeWaterStr);
+    final double? totalOutflow = double.tryParse(activeOutflowStr);
+
+    final double? netHead =
+        waterLevel != null ? (waterLevel - _tailwaterOffset) : null;
+    final double? flowPerTurbine =
+        totalOutflow != null ? (totalOutflow / _runningUnits) : null;
+
+    ChartPoint? nearestPoint;
+    double? finalEf;
+    double? powerPerTurbineKw;
+    double? totalPlantPowerKw;
+    String? statusWarning;
+    double chartH = 0.0;
+    int chartQ = 0;
+
+    if (netHead == null || flowPerTurbine == null) {
+      statusWarning = 'Enter valid numeric values for Water Level and Outflow.';
+    } else if (netHead <= 0) {
+      statusWarning =
+          'Water Level must be greater than $_tailwaterOffset m (Net Head H > 0).';
+    } else if (flowPerTurbine <= 0) {
+      statusWarning = 'Total Outflow must be greater than 0 Cum/s.';
+    } else {
+      final int headIdx = TurbineChartData.nearestHeadIndex(netHead);
+      final int nearFlow = TurbineChartData.nearestFlow(flowPerTurbine);
+      nearestPoint = TurbineChartData.grid[nearFlow]?[headIdx];
+
+      if (nearestPoint == null) {
+        statusWarning =
+            'Operating point (H=${netHead.toStringAsFixed(2)}m, Q=${flowPerTurbine.toStringAsFixed(2)} Cum/s) is outside the valid chart region.';
+      } else {
+        chartH = TurbineChartData.heads[headIdx];
+        chartQ = nearFlow;
+        finalEf = _useInterpolated
+            ? _calculateInterpolatedEf(netHead, flowPerTurbine)
+            : nearestPoint.ef;
+        powerPerTurbineKw =
+            netHead * flowPerTurbine * (finalEf / 100.0) * 9.81;
+        totalPlantPowerKw = powerPerTurbineKw * _runningUnits;
+
+        if (netHead < 6.0 ||
+            netHead > 20.0 ||
+            flowPerTurbine < 6.0 ||
+            flowPerTurbine > 21.0) {
+          statusWarning =
+              'Note: H or Flow is outside standard chart bounds (H: 6–20m, Q: 6–21 Cum/s). Using nearest chart boundary.';
+        }
+      }
+    }
+
+    final String activeGenStr = _currentGenController.text.trim().isNotEmpty
+        ? _currentGenController.text.trim()
+        : _savedCurrentGen;
+    final String activeRedStr = _reductionPctController.text.trim().isNotEmpty
+        ? _reductionPctController.text.trim()
+        : _savedReductionPct;
+
+    final double currentGenKw = double.tryParse(activeGenStr) ?? 0.0;
+    final double reductionPct = double.tryParse(activeRedStr) ?? 0.0;
+    final double reducedAmountKw = currentGenKw * (reductionPct / 100.0);
+    final double targetGenKw =
+        (currentGenKw - reducedAmountKw).clamp(0.0, double.infinity);
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Turbine Running Calculator',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Chart: ZZ1540 - LJI - 190 • Eagle Power',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Reset Defaults',
+            icon: const Icon(Icons.refresh, color: Color(0xFF94A3B8)),
+            onPressed: () async {
+              _waterLevelController.clear();
+              _outflowController.clear();
+              _currentGenController.clear();
+              _reductionPctController.clear();
+              setState(() {
+                _savedWaterLevel = '89.25';
+                _savedOutflow = '29.0';
+                _savedCurrentGen = '2300';
+                _savedReductionPct = '25';
+                _runningUnits = 2;
+                _useInterpolated = false;
+              });
+              await _saveCalcInputs();
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'PLANT INPUTS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Water Level (m)',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _waterLevelController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _savedWaterLevel,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Net Head H (m)',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              height: 52,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              alignment: Alignment.centerLeft,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: const Color(0xFF334155)),
+                              ),
+                              child: Text(
+                                netHead != null
+                                    ? netHead.toStringAsFixed(2)
+                                    : '--',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Total Outflow Qmax (Cum/s)',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFCBD5E1)),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _outflowController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _savedOutflow,
+                      hintStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                      suffixText: 'Cum/s',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Running Units:',
+                        style:
+                            TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
+                      ),
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment<int>(
+                            value: 1,
+                            label: Text('1 Turbine'),
+                          ),
+                          ButtonSegment<int>(
+                            value: 2,
+                            label: Text('2 Turbines'),
+                          ),
+                        ],
+                        selected: {_runningUnits},
+                        onSelectionChanged: (Set<int> newSelection) {
+                          setState(() {
+                            _runningUnits = newSelection.first;
+                          });
+                          _saveCalcInputs();
+                        },
+                      ),
+                    ],
+                  ),
+                  if (flowPerTurbine != null && flowPerTurbine > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Flow per Turbine: ${flowPerTurbine.toStringAsFixed(2)} Cum/s each',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (statusWarning != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF78350F).withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        statusWarning,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFFFDE68A)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (powerPerTurbineKw != null && nearestPoint != null) ...[
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: const Color(0xFF10B981), width: 1.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'OUTPUT POWER (PER TURBINE)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF065F46),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'H=${chartH.toStringAsFixed(1)}m, Q=$chartQ',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          powerPerTurbineKw.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'kW',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${(powerPerTurbineKw / 1000.0).toStringAsFixed(3)} MW',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFA7F3D0),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Color(0xFF047857), height: 22),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'TOTAL PLANT ($_runningUnits UNIT${_runningUnits > 1 ? 'S' : ''}):',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFA7F3D0),
+                          ),
+                        ),
+                        Text(
+                          '${totalPlantPowerKw!.toStringAsFixed(2)} kW (${(totalPlantPowerKw / 1000.0).toStringAsFixed(3)} MW)',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => WaterDischargeScreen(
+                                prefillOutflow: activeOutflowStr,
+                                prefillPower:
+                                    totalPlantPowerKw!.toStringAsFixed(0),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.water_drop_outlined, size: 17),
+                        label: const Text(
+                          'Send to Water Discharge Alert',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFFBBF24),
+                          side: const BorderSide(color: Color(0xFFF59E0B)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TURBINE CONTROL SETTINGS',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        _buildParamBox(
+                          'BA',
+                          'Blade Angle',
+                          '${nearestPoint.ba}°',
+                          const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildParamBox(
+                          'WGA',
+                          'Wicket Gate',
+                          '${nearestPoint.wga}°',
+                          const Color(0xFF38BDF8),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildParamBox(
+                          'EF',
+                          'Efficiency',
+                          '${finalEf!.toStringAsFixed(1)}%',
+                          const Color(0xFF10B981),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Interpolate intermediate EF values:',
+                          style:
+                              TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                        ),
+                        Switch(
+                          value: _useInterpolated,
+                          activeColor: const Color(0xFF38BDF8),
+                          onChanged: (v) {
+                            setState(() {
+                              _useInterpolated = v;
+                            });
+                            _saveCalcInputs();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'CEB POWER REDUCTION (%)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                      if (totalPlantPowerKw != null)
+                        InkWell(
+                          onTap: () {
+                            _currentGenController.text =
+                                totalPlantPowerKw!.toStringAsFixed(0);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFF38BDF8)),
+                            ),
+                            child: const Text(
+                              'Use Plant Power',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF38BDF8),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Generating Power (kW)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _currentGenController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _savedCurrentGen,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'kW',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Reduce (%)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _reductionPctController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF59E0B),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _savedReductionPct,
+                                hintStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: '%',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF78350F), Color(0xFF0F172A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'REDUCTION AMOUNT (${reductionPct.toStringAsFixed(0)}% TO REDUCE)',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Color(0xFFFBBF24),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              reducedAmountKw.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 42,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'kW',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${(reducedAmountKw / 1000.0).toStringAsFixed(3)} MW',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFDE68A),
+                          ),
+                        ),
+                        const Divider(color: Color(0xFF92400E), height: 20),
+                        Text(
+                          'Remaining Target Power: ${targetGenKw.toStringAsFixed(1)} kW (${(targetGenKw / 1000.0).toStringAsFixed(3)} MW)',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6EE7B7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SCREEN 3: WATER DISCHARGE UP / DOWN ALERT BUILDER
+// ============================================================================
+class WaterDischargeScreen extends StatefulWidget {
+  final String? prefillOutflow;
+  final String? prefillPower;
+
+  const WaterDischargeScreen({
+    super.key,
+    this.prefillOutflow,
+    this.prefillPower,
+  });
+
+  @override
+  State<WaterDischargeScreen> createState() => _WaterDischargeScreenState();
+}
+
+class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
+  final TextEditingController _wdTotalCtrl = TextEditingController();
+  final TextEditingController _wdMahaweliCtrl = TextEditingController();
+  final TextEditingController _wdPlantCtrl = TextEditingController();
+  final TextEditingController _wdPowerCtrl = TextEditingController();
+  final TextEditingController _wdTimeCtrl = TextEditingController();
+
+  String _wdDirection = 'down';
+  String _savedWdTotal = '26';
+  String _savedWdMahaweli = '00';
+  String _savedWdPlant = '26';
+  String _savedWdPower = '2300';
+
+  String _getCurrentDotTime() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _wdTimeCtrl.text = _getCurrentDotTime();
+    if (widget.prefillOutflow != null && widget.prefillOutflow!.isNotEmpty) {
+      _wdTotalCtrl.text = widget.prefillOutflow!;
+      _wdPlantCtrl.text = widget.prefillOutflow!;
+    }
+    if (widget.prefillPower != null && widget.prefillPower!.isNotEmpty) {
+      _wdPowerCtrl.text = widget.prefillPower!;
+    }
+    _loadSavedWdInputs();
+    for (final c in [
+      _wdTotalCtrl,
+      _wdMahaweliCtrl,
+      _wdPlantCtrl,
+      _wdPowerCtrl,
+      _wdTimeCtrl,
+    ]) {
+      c.addListener(_onChanged);
+    }
+  }
+
+  void _onChanged() {
+    _saveWdInputs();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSavedWdInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _wdDirection = prefs.getString('wd_direction') ?? 'down';
+      _savedWdTotal = prefs.getString('wd_total') ?? '26';
+      _savedWdMahaweli = prefs.getString('wd_mahaweli') ?? '00';
+      _savedWdPlant = prefs.getString('wd_plant') ?? '26';
+      _savedWdPower = prefs.getString('wd_power') ?? '2300';
+    });
+  }
+
+  Future<void> _saveWdInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final t = _wdTotalCtrl.text.trim();
+    final m = _wdMahaweliCtrl.text.trim();
+    final p = _wdPlantCtrl.text.trim();
+    final pw = _wdPowerCtrl.text.trim();
+    if (t.isNotEmpty) {
+      _savedWdTotal = t;
+      await prefs.setString('wd_total', t);
+    }
+    if (m.isNotEmpty) {
+      _savedWdMahaweli = m;
+      await prefs.setString('wd_mahaweli', m);
+    }
+    if (p.isNotEmpty) {
+      _savedWdPlant = p;
+      await prefs.setString('wd_plant', p);
+    }
+    if (pw.isNotEmpty) {
+      _savedWdPower = pw;
+      await prefs.setString('wd_power', pw);
+    }
+    await prefs.setString('wd_direction', _wdDirection);
+  }
+
+  String _buildDischargeChangeMessage() {
+    final String totalVal = _wdTotalCtrl.text.trim().isNotEmpty
+        ? _wdTotalCtrl.text.trim()
+        : _savedWdTotal;
+    final String mahaweliVal = _wdMahaweliCtrl.text.trim().isNotEmpty
+        ? _wdMahaweliCtrl.text.trim()
+        : _savedWdMahaweli;
+    final String plantVal = _wdPlantCtrl.text.trim().isNotEmpty
+        ? _wdPlantCtrl.text.trim()
+        : _savedWdPlant;
+    final String powerVal = _wdPowerCtrl.text.trim().isNotEmpty
+        ? _wdPowerCtrl.text.trim()
+        : _savedWdPower;
+    final String timeVal = _wdTimeCtrl.text.trim().isNotEmpty
+        ? _wdTimeCtrl.text.trim()
+        : _getCurrentDotTime();
+
+    return 'Water discharge $_wdDirection ${totalVal}m3/s\n'
+        'Mahaweli  $mahaweliVal m3/s\n'
+        'P. Plant discharge ${plantVal}m3/s\n'
+        'Power ${powerVal}kw\n'
+        'Time $timeVal';
+  }
+
+  @override
+  void dispose() {
+    _wdTotalCtrl.dispose();
+    _wdMahaweliCtrl.dispose();
+    _wdPlantCtrl.dispose();
+    _wdPowerCtrl.dispose();
+    _wdTimeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String previewMsg = _buildDischargeChangeMessage();
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Water Discharge (Up / Down)',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'WhatsApp Discharge Change Message',
+              style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B)),
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF59E0B), width: 1.4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'SELECT DIRECTION (UP / DOWN)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment<String>(
+                        value: 'up',
+                        icon: Icon(Icons.arrow_upward, size: 18),
+                        label: Text('UP (වැඩි කළා)'),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'down',
+                        icon: Icon(Icons.arrow_downward, size: 18),
+                        label: Text('DOWN (අඩු කළා)'),
+                      ),
+                    ],
+                    selected: {_wdDirection},
+                    onSelectionChanged: (Set<String> sel) {
+                      setState(() {
+                        _wdDirection = sel.first;
+                      });
+                      _saveWdInputs();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Row 1: Water discharge & Mahaweli
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Water discharge $_wdDirection',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdTotalCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdTotal,
+                                hintStyle: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Mahaweli',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdMahaweliCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdMahaweli,
+                                hintStyle: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Row 2: P. Plant discharge & Power
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'P. Plant discharge',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdPlantCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdPlant,
+                                hintStyle: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Power',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdPowerCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdPower,
+                                hintStyle: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'kw',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Row 3: Time with Now button
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Time (e.g. 14.00)',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFFCBD5E1)),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _wdTimeCtrl.text = _getCurrentDotTime();
+                              });
+                            },
+                            child: const Text(
+                              'Set Now Time',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF38BDF8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      TextField(
+                        controller: _wdTimeCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          hintText: _getCurrentDotTime(),
+                          hintStyle: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Live WhatsApp Preview
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF064E3B).withOpacity(0.35),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF10B981)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.chat, size: 16, color: Color(0xFF10B981)),
+                      SizedBox(width: 6),
+                      Text(
+                        'WHATSAPP MESSAGE PREVIEW',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFF6EE7B7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    previewMsg,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontFamily: 'monospace',
+                      color: Colors.white,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: () async {
+                await _saveWdInputs();
+                await Clipboard.setData(ClipboardData(text: previewMsg));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Water discharge WhatsApp message copied!'),
+                      backgroundColor: Color(0xFF10B981),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text(
+                'COPY WHATSAPP MESSAGE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SCREEN 4: 9.30 READING (T1, T2, NDEP VA, CEB MWH)
+// ============================================================================
+class Reading930Screen extends StatefulWidget {
+  const Reading930Screen({super.key});
+
+  @override
+  State<Reading930Screen> createState() => _Reading930ScreenState();
+}
+
+class _Reading930ScreenState extends State<Reading930Screen> {
+  final TextEditingController _t1Ctrl = TextEditingController();
+  final TextEditingController _t2Ctrl = TextEditingController();
+  final TextEditingController _ndepVaCtrl = TextEditingController();
+  final TextEditingController _cebMwhCtrl = TextEditingController();
+
+  String _savedT1 = '16818.55';
+  String _savedT2 = '14175.62';
+  String _savedNdepVa = '0.036';
+  String _savedCebMwh = '106741.03';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSaved930Inputs();
+    for (final c in [_t1Ctrl, _t2Ctrl, _ndepVaCtrl, _cebMwhCtrl]) {
+      c.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSaved930Inputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _savedT1 = prefs.getString('r930_t1') ?? '16818.55';
+      _savedT2 = prefs.getString('r930_t2') ?? '14175.62';
+      _savedNdepVa = prefs.getString('r930_ndep_va') ?? '0.036';
+      _savedCebMwh = prefs.getString('r930_ceb_mwh') ?? '106741.03';
+    });
+  }
+
+  Future<void> _save930Inputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final t1 = _t1Ctrl.text.trim();
+    final t2 = _t2Ctrl.text.trim();
+    final nd = _ndepVaCtrl.text.trim();
+    final ceb = _cebMwhCtrl.text.trim();
+
+    if (t1.isNotEmpty) {
+      _savedT1 = t1;
+      await prefs.setString('r930_t1', t1);
+    }
+    if (t2.isNotEmpty) {
+      _savedT2 = t2;
+      await prefs.setString('r930_t2', t2);
+    }
+    if (nd.isNotEmpty) {
+      _savedNdepVa = nd;
+      await prefs.setString('r930_ndep_va', nd);
+    }
+    if (ceb.isNotEmpty) {
+      _savedCebMwh = ceb;
+      await prefs.setString('r930_ceb_mwh', ceb);
+    }
+  }
+
+  String _build930Message() {
+    final String t1 =
+        _t1Ctrl.text.trim().isNotEmpty ? _t1Ctrl.text.trim() : _savedT1;
+    final String t2 =
+        _t2Ctrl.text.trim().isNotEmpty ? _t2Ctrl.text.trim() : _savedT2;
+    final String ndep = _ndepVaCtrl.text.trim().isNotEmpty
+        ? _ndepVaCtrl.text.trim()
+        : _savedNdepVa;
+    final String ceb = _cebMwhCtrl.text.trim().isNotEmpty
+        ? _cebMwhCtrl.text.trim()
+        : _savedCebMwh;
+
+    return 'T1 : $t1\n'
+        'T2 : $t2\n'
+        'NDEP VA : $ndep\n'
+        'CEB : ${ceb}mwh';
+  }
+
+  @override
+  void dispose() {
+    _t1Ctrl.dispose();
+    _t2Ctrl.dispose();
+    _ndepVaCtrl.dispose();
+    _cebMwhCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String previewMsg = _build930Message();
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '9.30 Reading',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              '9:30 AM Panel & CEB Meter Message',
+              style: TextStyle(fontSize: 11, color: Color(0xFFA855F7)),
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFA855F7), width: 1.4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ENTER 9:30 AM READINGS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Color(0xFFD8B4FE),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // T1 & T2 Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'T1',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _t1Ctrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedT1,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'T2',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _t2Ctrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedT2,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // NDEP VA & CEB Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'NDEP VA',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _ndepVaCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedNdepVa,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'CEB (mwh)',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _cebMwhCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedCebMwh,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'mwh',
+                                suffixStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Live WhatsApp Preview
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF064E3B).withOpacity(0.35),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF10B981)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.chat, size: 16, color: Color(0xFF10B981)),
+                      SizedBox(width: 6),
+                      Text(
+                        'WHATSAPP MESSAGE PREVIEW',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFF6EE7B7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    previewMsg,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontFamily: 'monospace',
+                      color: Colors.white,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Save & Copy Button
+            ElevatedButton.icon(
+              onPressed: () async {
+                await _save930Inputs();
+                setState(() {
+                  _t1Ctrl.clear();
+                  _t2Ctrl.clear();
+                  _ndepVaCtrl.clear();
+                  _cebMwhCtrl.clear();
+                });
+                await Clipboard.setData(ClipboardData(text: previewMsg));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('9.30 Reading saved & copied to clipboard!'),
+                      backgroundColor: Color(0xFF10B981),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text(
+                'SAVE & COPY 9.30 MESSAGE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
