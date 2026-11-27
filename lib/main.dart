@@ -434,7 +434,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 2.0.1 • Cloud Sync',
+                'Version 2.2.0 • Discharge Alerts',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -460,7 +460,7 @@ void showCommonAboutDialog(BuildContext context) {
               '• Net Head (H): Water Level - 78.64 m\n'
               '• Output Power: H × Cum × EF × 9.81 kW\n'
               '• CEB Load Reduction Calculator\n'
-              '• Live Cloud Sync & History (@Maduruoya#)',
+              '• Live Cloud Sync & History (@Maduruoya#)\n• Water Discharge Up/Down Message Builder',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFFCBD5E1),
@@ -520,16 +520,42 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
   int _runningUnits = 2;
   bool _useInterpolated = false;
 
+  // Water Discharge Up/Down WhatsApp Message Builder
+  final TextEditingController _wdTotalCtrl = TextEditingController();
+  final TextEditingController _wdMahaweliCtrl = TextEditingController();
+  final TextEditingController _wdPlantCtrl = TextEditingController();
+  final TextEditingController _wdPowerCtrl = TextEditingController();
+  final TextEditingController _wdTimeCtrl = TextEditingController();
+
+  String _wdDirection = 'down'; // 'up' or 'down'
+  String _savedWdTotal = '26';
+  String _savedWdMahaweli = '00';
+  String _savedWdPlant = '26';
+  String _savedWdPower = '2300';
+
   static const double _tailwaterOffset = 78.64;
+
+  String _getCurrentDotTime() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}';
+  }
 
   @override
   void initState() {
     super.initState();
+    _wdTimeCtrl.text = _getCurrentDotTime();
     _loadSavedCalcInputs();
     _waterLevelController.addListener(_onCalcInputChanged);
     _outflowController.addListener(_onCalcInputChanged);
     _currentGenController.addListener(_onCalcInputChanged);
     _reductionPctController.addListener(_onCalcInputChanged);
+    _wdTotalCtrl.addListener(_onWdInputChanged);
+    _wdMahaweliCtrl.addListener(_onWdInputChanged);
+    _wdPlantCtrl.addListener(_onWdInputChanged);
+    _wdPowerCtrl.addListener(_onWdInputChanged);
+    _wdTimeCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _loadSavedCalcInputs() async {
@@ -542,7 +568,66 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
       _savedReductionPct = prefs.getString('calc_reduction_pct') ?? '25';
       _runningUnits = prefs.getInt('calc_running_units') ?? 2;
       _useInterpolated = prefs.getBool('calc_use_interp') ?? false;
+      _wdDirection = prefs.getString('wd_direction') ?? 'down';
+      _savedWdTotal = prefs.getString('wd_total') ?? '26';
+      _savedWdMahaweli = prefs.getString('wd_mahaweli') ?? '00';
+      _savedWdPlant = prefs.getString('wd_plant') ?? '26';
+      _savedWdPower = prefs.getString('wd_power') ?? '2300';
     });
+  }
+
+  Future<void> _saveWdInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final t = _wdTotalCtrl.text.trim();
+    final m = _wdMahaweliCtrl.text.trim();
+    final p = _wdPlantCtrl.text.trim();
+    final pw = _wdPowerCtrl.text.trim();
+    if (t.isNotEmpty) {
+      _savedWdTotal = t;
+      await prefs.setString('wd_total', t);
+    }
+    if (m.isNotEmpty) {
+      _savedWdMahaweli = m;
+      await prefs.setString('wd_mahaweli', m);
+    }
+    if (p.isNotEmpty) {
+      _savedWdPlant = p;
+      await prefs.setString('wd_plant', p);
+    }
+    if (pw.isNotEmpty) {
+      _savedWdPower = pw;
+      await prefs.setString('wd_power', pw);
+    }
+    await prefs.setString('wd_direction', _wdDirection);
+  }
+
+  void _onWdInputChanged() {
+    _saveWdInputs();
+    setState(() {});
+  }
+
+  String _buildDischargeChangeMessage() {
+    final String totalVal = _wdTotalCtrl.text.trim().isNotEmpty
+        ? _wdTotalCtrl.text.trim()
+        : _savedWdTotal;
+    final String mahaweliVal = _wdMahaweliCtrl.text.trim().isNotEmpty
+        ? _wdMahaweliCtrl.text.trim()
+        : _savedWdMahaweli;
+    final String plantVal = _wdPlantCtrl.text.trim().isNotEmpty
+        ? _wdPlantCtrl.text.trim()
+        : _savedWdPlant;
+    final String powerVal = _wdPowerCtrl.text.trim().isNotEmpty
+        ? _wdPowerCtrl.text.trim()
+        : _savedWdPower;
+    final String timeVal = _wdTimeCtrl.text.trim().isNotEmpty
+        ? _wdTimeCtrl.text.trim()
+        : _getCurrentDotTime();
+
+    return 'Water discharge $_wdDirection ${totalVal}m3/s\n'
+        'Mahaweli  $mahaweliVal m3/s\n'
+        'P. Plant discharge ${plantVal}m3/s\n'
+        'Power ${powerVal}kw\n'
+        'Time $timeVal';
   }
 
   Future<void> _saveCalcInputs() async {
@@ -583,6 +668,11 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
     _outflowController.dispose();
     _currentGenController.dispose();
     _reductionPctController.dispose();
+    _wdTotalCtrl.dispose();
+    _wdMahaweliCtrl.dispose();
+    _wdPlantCtrl.dispose();
+    _wdPowerCtrl.dispose();
+    _wdTimeCtrl.dispose();
     super.dispose();
   }
 
@@ -1350,6 +1440,364 @@ class _TurbineCalculatorTabState extends State<TurbineCalculatorTab> {
                           textAlign: TextAlign.center,
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ================================================================
+            // NEW CARD: WATER DISCHARGE UP / DOWN WHATSAPP MESSAGE BUILDER
+            // ================================================================
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF38BDF8), width: 1.4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'WATER DISCHARGE UP / DOWN ALERT',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                      if (totalPlantPowerKw != null)
+                        InkWell(
+                          onTap: () {
+                            final String outStr = activeOutflowStr;
+                            final String pwrStr =
+                                totalPlantPowerKw!.toStringAsFixed(0);
+                            _wdTotalCtrl.text = outStr;
+                            _wdPlantCtrl.text = outStr;
+                            _wdPowerCtrl.text = pwrStr;
+                            _wdTimeCtrl.text = _getCurrentDotTime();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFF10B981)),
+                            ),
+                            child: const Text(
+                              'Fill from Calc',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // UP / DOWN Toggle
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment<String>(
+                        value: 'up',
+                        icon: Icon(Icons.arrow_upward, size: 16),
+                        label: Text('UP (වැඩි කළා)'),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'down',
+                        icon: Icon(Icons.arrow_downward, size: 16),
+                        label: Text('DOWN (අඩු කළා)'),
+                      ),
+                    ],
+                    selected: {_wdDirection},
+                    onSelectionChanged: (Set<String> sel) {
+                      setState(() {
+                        _wdDirection = sel.first;
+                      });
+                      _saveWdInputs();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Row 1: Water discharge & Mahaweli
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Water discharge $_wdDirection',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdTotalCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdTotal,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Mahaweli',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdMahaweliCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdMahaweli,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Row 2: P. Plant discharge & Power
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'P. Plant discharge',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdPlantCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdPlant,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'm3/s',
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Power',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 5),
+                            TextField(
+                              controller: _wdPowerCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                hintText: _savedWdPower,
+                                hintStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixText: 'kw',
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Row 3: Time with Now button
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Time (e.g. 14.00)',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFFCBD5E1)),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _wdTimeCtrl.text = _getCurrentDotTime();
+                              });
+                            },
+                            child: const Text(
+                              'Set Now Time',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF38BDF8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      TextField(
+                        controller: _wdTimeCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          hintText: _getCurrentDotTime(),
+                          hintStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Live WhatsApp Preview Box
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF064E3B).withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF10B981)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.chat,
+                                size: 15, color: Color(0xFF10B981)),
+                            SizedBox(width: 6),
+                            Text(
+                              'WHATSAPP MESSAGE PREVIEW',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                                color: Color(0xFF6EE7B7),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        SelectableText(
+                          _buildDischargeChangeMessage(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Copy WhatsApp Message Button
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _saveWdInputs();
+                      final msg = _buildDischargeChangeMessage();
+                      await Clipboard.setData(ClipboardData(text: msg));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Water discharge WhatsApp message copied!'),
+                            backgroundColor: Color(0xFF10B981),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text(
+                      'COPY DISCHARGE MESSAGE',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ],
@@ -2896,3 +3344,5 @@ class _DailyGenerationTabState extends State<DailyGenerationTab> {
     );
   }
 }
+
+
