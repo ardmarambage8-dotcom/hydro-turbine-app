@@ -4447,7 +4447,7 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        final List> loaded = [];
+        final loaded = [];
         if (decoded != null && decoded is Map<String, dynamic>) {
           decoded.forEach((key, value) {
             if (value is Map<String, dynamic>) {
@@ -4468,8 +4468,8 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
         }
         if (mounted) {
           setState(() {
-            _messages = loaded;
-            _isLoading = false;
+         _messages = loaded.cast();
+         _isLoading = false;
           });
           _scrollToBottom();
         }
