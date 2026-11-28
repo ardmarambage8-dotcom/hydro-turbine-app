@@ -389,7 +389,7 @@ void showCommonAboutDialog(BuildContext context) {
                 border: Border.all(color: const Color(0xFF38BDF8)),
               ),
               child: const Text(
-                'Version 3.0.0 • Dashboard Edition',
+                'Version 3.1.0 • Shift Log Edition',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -415,6 +415,7 @@ void showCommonAboutDialog(BuildContext context) {
               '2. Turbine Running Calculator & CEB Reduction\n'
               '3. Water Discharge Up / Down Alert\n'
               '4. 9:30 AM Meter Reading Report\n'
+              '5. Internal Shift Log & Fault Alerts\n'
               '• Live Firebase Cloud Sync (@Maduruoya#)',
               style: TextStyle(
                 fontSize: 12,
@@ -438,6 +439,15 @@ void showCommonAboutDialog(BuildContext context) {
                 color: Color(0xFFF59E0B),
               ),
             ),
+            const SizedBox(height: 4),
+            const SelectableText(
+              'arunaruwandeepamarambage@gmail.com',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF38BDF8),
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -452,7 +462,7 @@ void showCommonAboutDialog(BuildContext context) {
 }
 
 // ============================================================================
-// MAIN HOME DASHBOARD (4 CLEAN ACTION CARDS)
+// MAIN HOME DASHBOARD (5 ACTION CARDS)
 // ============================================================================
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
@@ -465,6 +475,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   bool _isCloudConnected = false;
   bool _isChecking = false;
   String _cloudBannerText = 'Checking Cloud Sync...';
+  int _activeFaultCount = 0;
 
   @override
   void initState() {
@@ -488,9 +499,32 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         if (decoded != null && decoded is Map<String, dynamic>) {
           lastDate = (decoded['updated_date'] ?? '').toString();
         }
+
+        int faultCount = 0;
+        try {
+          final chatUri =
+              Uri.parse('$kFirebaseDbUrl/maduruoya/shift_chat.json');
+          final chatRes =
+              await http.get(chatUri).timeout(const Duration(seconds: 6));
+          if (chatRes.statusCode == 200) {
+            final chatDecoded = jsonDecode(chatRes.body);
+            if (chatDecoded != null && chatDecoded is Map<String, dynamic>) {
+              chatDecoded.forEach((_, val) {
+                if (val is Map<String, dynamic>) {
+                  final tag = (val['tag'] ?? '').toString();
+                  if (tag == 'FAULT / FAIL') {
+                    faultCount++;
+                  }
+                }
+              });
+            }
+          }
+        } catch (_) {}
+
         if (mounted) {
           setState(() {
             _isCloudConnected = true;
+            _activeFaultCount = faultCount;
             _cloudBannerText = lastDate.isNotEmpty
                 ? 'Cloud Synced • Last 9 AM Save: $lastDate'
                 : 'Cloud Connected • @Maduruoya#';
@@ -531,6 +565,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     required Color accentColor,
     required List<Color> gradientColors,
     required VoidCallback onTap,
+    String? badgeText,
+    Color badgeColor = const Color(0xFFEF4444),
   }) {
     return InkWell(
       onTap: onTap,
@@ -570,13 +606,39 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      if (badgeText != null && badgeText.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withOpacity(0.22),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: badgeColor, width: 1),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: badgeColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -661,7 +723,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Cloud Status Strip
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -780,6 +841,29 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       builder: (_) => const Reading930Screen(),
                     ),
                   );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 5. SHIFT LOG & FAULT ALERTS (INTERNAL OPERATORS ONLY)
+              _buildMenuCard(
+                number: '5',
+                title: 'Shift Log & Fault Alerts',
+                subtitle: 'Operator Fault Alerts, CEB Notes & Shift Handover Log',
+                icon: Icons.forum_rounded,
+                accentColor: const Color(0xFFEF4444),
+                gradientColors: const [Color(0xFF7F1D1D), Color(0xFF0F172A)],
+                badgeText: _activeFaultCount > 0
+                    ? '$_activeFaultCount ACTIVE FAULT'
+                    : null,
+                badgeColor: const Color(0xFFF87171),
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ShiftLogScreen(),
+                    ),
+                  );
+                  _checkCloudStatus();
                 },
               ),
               const SizedBox(height: 16),
@@ -1656,7 +1740,6 @@ class _DailyGenerationScreenState extends State<DailyGenerationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // CLOUD STATUS BANNER
             Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -3607,7 +3690,6 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Row 1: Water discharge & Mahaweli
                   Row(
                     children: [
                       Expanded(
@@ -3675,7 +3757,6 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Row 2: P. Plant discharge & Power
                   Row(
                     children: [
                       Expanded(
@@ -3743,7 +3824,6 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Row 3: Time with Now button
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3795,7 +3875,6 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Live WhatsApp Preview
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -4016,8 +4095,6 @@ class _Reading930ScreenState extends State<Reading930Screen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
-                  // T1 & T2 Row
                   Row(
                     children: [
                       Expanded(
@@ -4086,8 +4163,6 @@ class _Reading930ScreenState extends State<Reading930Screen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-
-                  // NDEP VA & CEB Row
                   Row(
                     children: [
                       Expanded(
@@ -4165,8 +4240,6 @@ class _Reading930ScreenState extends State<Reading930Screen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Live WhatsApp Preview
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -4206,8 +4279,6 @@ class _Reading930ScreenState extends State<Reading930Screen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Save & Copy Button
             ElevatedButton.icon(
               onPressed: () async {
                 await _save930Inputs();
@@ -4245,6 +4316,662 @@ class _Reading930ScreenState extends State<Reading930Screen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SCREEN 5: INTERNAL SHIFT LOG & FAULT ALERTS (OPERATORS ONLY)
+// ============================================================================
+class ShiftLogScreen extends StatefulWidget {
+  const ShiftLogScreen({super.key});
+
+  @override
+  State<ShiftLogScreen> createState() => _ShiftLogScreenState();
+}
+
+class _ShiftLogScreenState extends State<ShiftLogScreen> {
+  final TextEditingController _msgCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+
+  String _operatorName = '';
+  String _selectedTag = 'FAULT / FAIL';
+  bool _isLoading = true;
+  bool _isSending = false;
+  List> _messages = [];
+
+  static const List> _tagOptions = [
+    {
+      'label': 'FAULT / FAIL',
+      'color': Color(0xFFEF4444),
+      'icon': Icons.warning_amber_rounded,
+    },
+    {
+      'label': 'CEB / GRID',
+      'color': Color(0xFFF59E0B),
+      'icon': Icons.electrical_services,
+    },
+    {
+      'label': 'SHIFT NOTE',
+      'color': Color(0xFF38BDF8),
+      'icon': Icons.info_outline,
+    },
+    {
+      'label': 'RESOLVED',
+      'color': Color(0xFF10B981),
+      'icon': Icons.check_circle_outline,
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initShiftLog();
+  }
+
+  Future<void> _initShiftLog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString('operator_name') ?? '';
+    if (mounted) {
+      setState(() {
+        _operatorName = savedName;
+      });
+    }
+    await _fetchMessages(silent: true);
+  }
+
+  Future<void> _saveOperatorName(String name) async {
+    final clean = name.trim();
+    if (clean.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('operator_name', clean);
+    if (mounted) {
+      setState(() {
+        _operatorName = clean;
+      });
+    }
+  }
+
+  void _showSetNameDialog() {
+    final tempCtrl = TextEditingController(text: _operatorName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.person_pin, color: Color(0xFF38BDF8)),
+            SizedBox(width: 8),
+            Text('Operator Name', style: TextStyle(fontSize: 17)),
+          ],
+        ),
+        content: TextField(
+          controller: tempCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Enter your name (e.g. Aruna)',
+            hintText: 'Operator Name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              if (tempCtrl.text.trim().isNotEmpty) {
+                await _saveOperatorName(tempCtrl.text.trim());
+                if (ctx.mounted) Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchMessages({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _isLoading = true);
+    }
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/shift_chat.json');
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        final List> loaded = [];
+        if (decoded != null && decoded is Map<String, dynamic>) {
+          decoded.forEach((key, value) {
+            if (value is Map<String, dynamic>) {
+              loaded.add({
+                'id': key,
+                'sender': (value['sender'] ?? 'Operator').toString(),
+                'tag': (value['tag'] ?? 'SHIFT NOTE').toString(),
+                'text': (value['text'] ?? '').toString(),
+                'time': (value['time'] ?? '').toString(),
+                'resolved_by': (value['resolved_by'] ?? '').toString(),
+                'ts': (value['ts'] ?? 0) is int
+                    ? value['ts']
+                    : int.tryParse(value['ts'].toString()) ?? 0,
+              });
+            }
+          });
+          loaded.sort((a, b) => (a['ts'] as int).compareTo(b['ts'] as int));
+        }
+        if (mounted) {
+          setState(() {
+            _messages = loaded;
+            _isLoading = false;
+          });
+          _scrollToBottom();
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not refresh messages. Check connection.'),
+              backgroundColor: Color(0xFFF59E0B),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String _formatNowTime() {
+    final now = DateTime.now();
+    final y = now.year.toString();
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    return '$y/$m/$d  $hh:$mm';
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    if (_operatorName.isEmpty) {
+      _showSetNameDialog();
+      return;
+    }
+
+    setState(() => _isSending = true);
+
+    try {
+      final now = DateTime.now();
+      final payload = {
+        'sender': _operatorName,
+        'tag': _selectedTag,
+        'text': text,
+        'time': _formatNowTime(),
+        'ts': now.millisecondsSinceEpoch,
+      };
+
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/shift_chat.json');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        _msgCtrl.clear();
+        await _fetchMessages(silent: true);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to send message. Try again.'),
+              backgroundColor: Color(0xFFF87171),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No internet connection. Message not sent.'),
+            backgroundColor: Color(0xFFF59E0B),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _markAsResolved(String id) async {
+    if (_operatorName.isEmpty) {
+      _showSetNameDialog();
+      return;
+    }
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/shift_chat/$id.json');
+      await http
+          .patch(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'tag': 'RESOLVED',
+              'resolved_by': '$_operatorName (${_formatNowTime()})',
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      await _fetchMessages(silent: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fault marked as RESOLVED!'),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _deleteMessage(String id) async {
+    try {
+      final uri = Uri.parse('$kFirebaseDbUrl/maduruoya/shift_chat/$id.json');
+      await http.delete(uri).timeout(const Duration(seconds: 8));
+      await _fetchMessages(silent: true);
+    } catch (_) {}
+  }
+
+  Color _colorForTag(String tag) {
+    for (final opt in _tagOptions) {
+      if (opt['label'] == tag) return opt['color'] as Color;
+    }
+    return const Color(0xFF38BDF8);
+  }
+
+  IconData _iconForTag(String tag) {
+    for (final opt in _tagOptions) {
+      if (opt['label'] == tag) return opt['icon'] as IconData;
+    }
+    return Icons.info_outline;
+  }
+
+  @override
+  void dispose() {
+    _msgCtrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Shift Log & Fault Alerts',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              _operatorName.isNotEmpty
+                  ? 'Operator: $_operatorName • Operators Only'
+                  : 'Tap person icon to set your name',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF38BDF8)),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Set Operator Name',
+            icon: const Icon(Icons.person_pin, color: Color(0xFFF59E0B)),
+            onPressed: _showSetNameDialog,
+          ),
+          IconButton(
+            tooltip: 'Refresh Messages',
+            icon: const Icon(Icons.refresh, color: Color(0xFF10B981)),
+            onPressed: () => _fetchMessages(silent: false),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_operatorName.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              color: const Color(0xFF78350F).withOpacity(0.45),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_add,
+                      size: 18, color: Color(0xFFFBBF24)),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Set your Operator Name before posting alerts:',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFFDE68A)),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _showSetNameDialog,
+                    child: const Text(
+                      'Set Name',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.forum_outlined,
+                                  size: 54, color: Color(0xFF475569)),
+                              SizedBox(height: 12),
+                              Text(
+                                'No shift notes or fault alerts yet.',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                'Post any turbine fault, CEB instruction, or shift handover note below so the next operator sees it immediately.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollCtrl,
+                        padding: const EdgeInsets.all(14),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final sender = msg['sender'] as String;
+                          final tag = msg['tag'] as String;
+                          final text = msg['text'] as String;
+                          final time = msg['time'] as String;
+                          final resolvedBy = msg['resolved_by'] as String;
+                          final id = msg['id'] as String;
+                          final bool isMe = _operatorName.isNotEmpty &&
+                              sender.toLowerCase() ==
+                                  _operatorName.toLowerCase();
+                          final Color tagColor = _colorForTag(tag);
+
+                          return Align(
+                            alignment: isMe
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(12),
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.85,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isMe
+                                    ? const Color(0xFF1E3A5F)
+                                    : const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: tagColor.withOpacity(0.75),
+                                  width: 1.3,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: tagColor.withOpacity(0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: tagColor, width: 0.8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(_iconForTag(tag),
+                                                size: 12, color: tagColor),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              tag,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: tagColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        sender,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFE2E8F0),
+                                        ),
+                                      ),
+                                      if (isMe) ...[
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          onTap: () => _deleteMessage(id),
+                                          child: const Icon(
+                                            Icons.delete_outline,
+                                            size: 15,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    text,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  if (resolvedBy.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Resolved by: $resolvedBy',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6EE7B7),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        time,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                      if (tag == 'FAULT / FAIL') ...[
+                                        const SizedBox(width: 12),
+                                        InkWell(
+                                          onTap: () => _markAsResolved(id),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981)
+                                                  .withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFF10B981)),
+                                            ),
+                                            child: const Text(
+                                              '✓ Mark Resolved',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF6EE7B7),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F172A),
+              border: Border(top: BorderSide(color: Color(0xFF1E293B))),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _tagOptions.map((opt) {
+                      final String label = opt['label'] as String;
+                      final Color color = opt['color'] as Color;
+                      final bool selected = _selectedTag == label;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: selected ? Colors.white : color,
+                            ),
+                          ),
+                          selected: selected,
+                          selectedColor: color.withOpacity(0.85),
+                          backgroundColor: const Color(0xFF1E293B),
+                          side: BorderSide(color: color.withOpacity(0.6)),
+                          onSelected: (_) {
+                            setState(() => _selectedTag = label);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _msgCtrl,
+                        maxLines: 3,
+                        minLines: 1,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendMessage(),
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                          hintText: 'Type fault alert or shift handover note...',
+                          hintStyle:
+                              TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      radius: 23,
+                      backgroundColor: const Color(0xFF10B981),
+                      child: IconButton(
+                        icon: _isSending
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.send,
+                                color: Colors.white, size: 20),
+                        onPressed: _isSending ? null : _sendMessage,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
