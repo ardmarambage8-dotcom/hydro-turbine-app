@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -110,12 +111,52 @@ class _PinLockScreenState extends State<PinLockScreen> {
       );
     }
 
+    final bool isWindows = defaultTargetPlatform == TargetPlatform.windows;
+
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (isWindows) ...[
+            Image.asset(
+              'IMG_20260203_144723.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+            Container(
+              color: const Color(0xFF060B16).withOpacity(0.84),
+            ),
+          ],
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isWindows ? 380 : double.infinity,
+                  ),
+                  child: Container(
+                    padding: isWindows
+                        ? const EdgeInsets.all(24)
+                        : EdgeInsets.zero,
+                    decoration: isWindows
+                        ? BoxDecoration(
+                            color: const Color(0xFF0F172A).withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: const Color(0xFF38BDF8).withOpacity(0.5),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.65),
+                                blurRadius: 30,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          )
+                        : null,
+                    child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ClipRRect(
@@ -233,8 +274,12 @@ class _PinLockScreenState extends State<PinLockScreen> {
                 ),
               ],
             ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -664,6 +709,18 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isWindows = defaultTargetPlatform == TargetPlatform.windows;
+    if (isWindows) {
+      return WindowsDesktopDashboard(
+        isCloudConnected: _isCloudConnected,
+        isChecking: _isChecking,
+        cloudBannerText: _cloudBannerText,
+        activeFaultCount: _activeFaultCount,
+        todayLabel: _todayLabel(),
+        onRefreshCloud: _checkCloudStatus,
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
@@ -4991,6 +5048,585 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+// ============================================================================
+// WINDOWS DESKTOP SCADA LAYOUT (BANNER + ANIMATED LEFT SIDEBAR + WORKSPACE)
+// ============================================================================
+class WindowsDesktopDashboard extends StatefulWidget {
+  final bool isCloudConnected;
+  final bool isChecking;
+  final String cloudBannerText;
+  final int activeFaultCount;
+  final String todayLabel;
+  final Future<void> Function() onRefreshCloud;
+
+  const WindowsDesktopDashboard({
+    super.key,
+    required this.isCloudConnected,
+    required this.isChecking,
+    required this.cloudBannerText,
+    required this.activeFaultCount,
+    required this.todayLabel,
+    required this.onRefreshCloud,
+  });
+
+  @override
+  State<WindowsDesktopDashboard> createState() =>
+      _WindowsDesktopDashboardState();
+}
+
+class _WindowsDesktopDashboardState extends State<WindowsDesktopDashboard> {
+  int _selectedIndex = 0;
+
+  static const List<Map<String, dynamic>> _navItems = [
+    {
+      'title': 'Daily Generation',
+      'subtitle': '9:00 AM Report & Cloud Sync',
+      'icon': Icons.assignment_turned_in_rounded,
+      'color': Color(0xFF10B981),
+      'gradStart': Color(0xFF064E3B),
+    },
+    {
+      'title': 'Turbine Calculator',
+      'subtitle': 'Outflow, BA/WGA/EF & CEB %',
+      'icon': Icons.calculate_rounded,
+      'color': Color(0xFF38BDF8),
+      'gradStart': Color(0xFF0C4A6E),
+    },
+    {
+      'title': 'Water Discharge',
+      'subtitle': 'Up / Down Discharge Alert',
+      'icon': Icons.water_drop_rounded,
+      'color': Color(0xFFF59E0B),
+      'gradStart': Color(0xFF78350F),
+    },
+    {
+      'title': '9.30 Reading',
+      'subtitle': 'T1, T2, NDEP VA & CEB Mwh',
+      'icon': Icons.access_time_filled_rounded,
+      'color': Color(0xFFA855F7),
+      'gradStart': Color(0xFF4C1D95),
+    },
+    {
+      'title': 'Shift Log & Faults',
+      'subtitle': 'Operator Alerts & Handover',
+      'icon': Icons.forum_rounded,
+      'color': Color(0xFFEF4444),
+      'gradStart': Color(0xFF7F1D1D),
+    },
+  ];
+
+  Widget _buildActiveWorkspace() {
+    switch (_selectedIndex) {
+      case 0:
+        return const DailyGenerationScreen();
+      case 1:
+        return const TurbineCalculatorScreen();
+      case 2:
+        return const WaterDischargeScreen();
+      case 3:
+        return const Reading930Screen();
+      case 4:
+        return const ShiftLogScreen();
+      default:
+        return const DailyGenerationScreen();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF070C18),
+      body: Column(
+        children: [
+          // TOP POWER PLANT PHOTO BANNER
+          SizedBox(
+            height: 118,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'IMG_20260203_144723.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                // Dark gradient overlay so text and controls stay crisp
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF060B16).withOpacity(0.90),
+                        const Color(0xFF0B1120).withOpacity(0.68),
+                        const Color(0xFF060B16).withOpacity(0.88),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    border: const Border(
+                      bottom: BorderSide(
+                        color: Color(0xFF38BDF8),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.asset(
+                          '1795510508002.jpg',
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.bolt,
+                            size: 48,
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'EAGLE POWER • MADURUOYA HYDRO POWER PLANT',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black87,
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A)
+                                        .withOpacity(0.85),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: const Color(0xFF38BDF8)),
+                                  ),
+                                  child: Text(
+                                    'Date: ${widget.todayLabel}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF38BDF8),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: widget.isCloudConnected
+                                        ? const Color(0xFF064E3B)
+                                            .withOpacity(0.85)
+                                        : const Color(0xFF78350F)
+                                            .withOpacity(0.85),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: widget.isCloudConnected
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFF59E0B),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        widget.isCloudConnected
+                                            ? Icons.cloud_done
+                                            : Icons.cloud_off,
+                                        size: 14,
+                                        color: widget.isCloudConnected
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFFF59E0B),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        widget.cloudBannerText,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        onTap: widget.isChecking
+                                            ? null
+                                            : widget.onRefreshCloud,
+                                        child: const Icon(
+                                          Icons.refresh,
+                                          size: 15,
+                                          color: Color(0xFF38BDF8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Top Right Action Buttons
+                      ElevatedButton.icon(
+                        onPressed: () => showCommonChangePinDialog(context),
+                        icon: const Icon(Icons.lock_outline, size: 16),
+                        label: const Text('Change PIN'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF1E293B).withOpacity(0.9),
+                          foregroundColor: const Color(0xFFF59E0B),
+                          side: const BorderSide(color: Color(0xFFF59E0B)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () => showCommonAboutDialog(context),
+                        icon: const Icon(Icons.info_outline, size: 16),
+                        label: const Text('About'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF1E293B).withOpacity(0.9),
+                          foregroundColor: const Color(0xFF38BDF8),
+                          side: const BorderSide(color: Color(0xFF38BDF8)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // MAIN BODY: LEFT SIDEBAR (5 ANIMATED CARDS) + LARGE CENTER WORKSPACE
+          Expanded(
+            child: Row(
+              children: [
+                // LEFT SIDEBAR PANEL
+                Container(
+                  width: 315,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0B1120),
+                    border: Border(
+                      right: BorderSide(color: Color(0xFF1E293B), width: 1.5),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(18, 16, 18, 8),
+                        child: Text(
+                          'OPERATIONAL MODULES',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          itemCount: _navItems.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final item = _navItems[index];
+                            final bool isSelected = _selectedIndex == index;
+                            final String? badge = (index == 4 &&
+                                    widget.activeFaultCount > 0)
+                                ? '${widget.activeFaultCount} FAULT'
+                                : null;
+
+                            return _AnimatedSidebarCard(
+                              title: item['title'] as String,
+                              subtitle: item['subtitle'] as String,
+                              icon: item['icon'] as IconData,
+                              accentColor: item['color'] as Color,
+                              gradStart: item['gradStart'] as Color,
+                              isSelected: isSelected,
+                              badgeText: badge,
+                              onTap: () {
+                                setState(() {
+                                  _selectedIndex = index;
+                                });
+                                widget.onRefreshCloud();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: Color(0xFF1E293B)),
+                          ),
+                        ),
+                        child: const Text(
+                          'Eagle Power v3.1.0 • Windows Control Suite',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // RIGHT / CENTER LARGE WORKSPACE AREA
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFF090E1A),
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 960),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0B1120),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0xFF1E293B),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.45),
+                                blurRadius: 20,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: KeyedSubtree(
+                              key: ValueKey<int>(_selectedIndex),
+                              child: _buildActiveWorkspace(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedSidebarCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+  final Color gradStart;
+  final bool isSelected;
+  final String? badgeText;
+  final VoidCallback onTap;
+
+  const _AnimatedSidebarCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
+    required this.gradStart,
+    required this.isSelected,
+    this.badgeText,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimatedSidebarCard> createState() => _AnimatedSidebarCardState();
+}
+
+class _AnimatedSidebarCardState extends State<_AnimatedSidebarCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool active = widget.isSelected || _isHovered;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.identity()
+            ..translate(_isHovered && !widget.isSelected ? 6.0 : 0.0, 0.0)
+            ..scale(active ? 1.02 : 1.0),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: widget.isSelected
+                  ? [
+                      widget.gradStart,
+                      const Color(0xFF1E293B),
+                    ]
+                  : _isHovered
+                      ? [
+                          widget.gradStart.withOpacity(0.65),
+                          const Color(0xFF172033),
+                        ]
+                      : [
+                          const Color(0xFF131C2E),
+                          const Color(0xFF0F172A),
+                        ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: widget.isSelected
+                  ? widget.accentColor
+                  : _isHovered
+                      ? widget.accentColor.withOpacity(0.75)
+                      : const Color(0xFF1E293B),
+              width: widget.isSelected ? 2.0 : 1.3,
+            ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: widget.accentColor.withOpacity(
+                        widget.isSelected ? 0.28 : 0.16,
+                      ),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.accentColor.withOpacity(
+                    active ? 0.25 : 0.14,
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: widget.accentColor.withOpacity(active ? 0.85 : 0.4),
+                  ),
+                ),
+                child: Icon(
+                  widget.icon,
+                  size: 23,
+                  color: widget.accentColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: active
+                                  ? Colors.white
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                        ),
+                        if (widget.badgeText != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: const Color(0xFFEF4444)),
+                            ),
+                            child: Text(
+                              widget.badgeText!,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF87171),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: active ? widget.accentColor : const Color(0xFF475569),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
