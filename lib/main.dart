@@ -414,8 +414,7 @@ void showCommonAboutDialog(BuildContext context) {
               '1. Daily Generation (9:00 AM Report)\n'
               '2. Turbine Running Calculator & CEB Reduction\n'
               '3. Water Discharge Up / Down Alert\n'
-              '4. 9:30 AM Meter Reading Report\n'
-              '5. Internal Shift Log & Fault Alerts\n'
+              '4. 9:30 AM Meter Reading Report\n5. Internal Shift Log & Fault Alerts\n'
               '• Live Firebase Cloud Sync (@Maduruoya#)',
               style: TextStyle(
                 fontSize: 12,
@@ -462,7 +461,7 @@ void showCommonAboutDialog(BuildContext context) {
 }
 
 // ============================================================================
-// MAIN HOME DASHBOARD (5 ACTION CARDS)
+// MAIN HOME DASHBOARD (4 CLEAN ACTION CARDS)
 // ============================================================================
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
@@ -500,6 +499,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           lastDate = (decoded['updated_date'] ?? '').toString();
         }
 
+        // Also check active unresolved FAULT / FAIL count in shift_chat
         int faultCount = 0;
         try {
           final chatUri =
@@ -723,6 +723,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Cloud Status Strip
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1740,6 +1741,7 @@ class _DailyGenerationScreenState extends State<DailyGenerationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // CLOUD STATUS BANNER
             Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -3690,6 +3692,7 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Row 1: Water discharge & Mahaweli
                   Row(
                     children: [
                       Expanded(
@@ -3757,6 +3760,7 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Row 2: P. Plant discharge & Power
                   Row(
                     children: [
                       Expanded(
@@ -3824,6 +3828,7 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Row 3: Time with Now button
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3875,6 +3880,7 @@ class _WaterDischargeScreenState extends State<WaterDischargeScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Live WhatsApp Preview
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -4095,6 +4101,8 @@ class _Reading930ScreenState extends State<Reading930Screen> {
                     ),
                   ),
                   const SizedBox(height: 14),
+
+                  // T1 & T2 Row
                   Row(
                     children: [
                       Expanded(
@@ -4163,6 +4171,8 @@ class _Reading930ScreenState extends State<Reading930Screen> {
                     ],
                   ),
                   const SizedBox(height: 14),
+
+                  // NDEP VA & CEB Row
                   Row(
                     children: [
                       Expanded(
@@ -4240,6 +4250,8 @@ class _Reading930ScreenState extends State<Reading930Screen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Live WhatsApp Preview
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -4279,6 +4291,8 @@ class _Reading930ScreenState extends State<Reading930Screen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Save & Copy Button
             ElevatedButton.icon(
               onPressed: () async {
                 await _save930Inputs();
@@ -4321,6 +4335,7 @@ class _Reading930ScreenState extends State<Reading930Screen> {
   }
 }
 
+
 // ============================================================================
 // SCREEN 5: INTERNAL SHIFT LOG & FAULT ALERTS (OPERATORS ONLY)
 // ============================================================================
@@ -4339,9 +4354,9 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
   String _selectedTag = 'FAULT / FAIL';
   bool _isLoading = true;
   bool _isSending = false;
-  List> _messages = [];
+  List<Map<String, dynamic>> _messages = [];
 
-  static const List> _tagOptions = [
+  static const List<Map<String, dynamic>> _tagOptions = [
     {
       'label': 'FAULT / FAIL',
       'color': Color(0xFFEF4444),
@@ -4447,7 +4462,7 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        final loaded = [];
+        final List<Map<String, dynamic>> loaded = [];
         if (decoded != null && decoded is Map<String, dynamic>) {
           decoded.forEach((key, value) {
             if (value is Map<String, dynamic>) {
@@ -4468,8 +4483,8 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
         }
         if (mounted) {
           setState(() {
-         _messages = loaded.cast();
-         _isLoading = false;
+            _messages = loaded;
+            _isLoading = false;
           });
           _scrollToBottom();
         }
@@ -4694,6 +4709,8 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
                 ],
               ),
             ),
+
+          // Messages List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -4888,6 +4905,8 @@ class _ShiftLogScreenState extends State<ShiftLogScreen> {
                         },
                       ),
           ),
+
+          // Tag Selector + Message Input Bar
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             decoration: const BoxDecoration(
