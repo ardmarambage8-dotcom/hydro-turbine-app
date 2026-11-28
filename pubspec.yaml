@@ -1,7 +1,7 @@
 name: hydro_turbine_app
 description: Hydro Power Turbine ZZ1540-LJI-190 Calculator
 publish_to: 'none'
-version: 3.0.0+5
+version: 3.1.0+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
