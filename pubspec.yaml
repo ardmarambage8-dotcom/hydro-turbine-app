@@ -26,6 +26,7 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-  assets:
+assets:
     - 1795510508002.jpg
+    - IMG_20260203_144723.jpg
     
